@@ -4,12 +4,24 @@ const WebSocket = require("ws");
 const express = require("express");
 
 // WebSocket server for Chrome Extension
-const wss = new WebSocket.Server({ port: 3000 });
+const wss = new WebSocket.Server({ 
+  port: 3000,
+  perMessageDeflate: false // Disable compression for better performance
+});
+
 let chromeExtensionSocket = null;
 let availableTools = [];
+let connectionStatus = {
+  connected: false,
+  lastConnection: null,
+  reconnectAttempts: 0,
+  maxReconnectAttempts: 5
+};
 
-// Tool call tracking
+// Tool call tracking with improved timeout handling
 const pendingCalls = new Map();
+const TOOL_CALL_TIMEOUT = 60000; // Increase timeout to 60 seconds
+const PING_INTERVAL = 15000; // Ping every 15 seconds
 
 // Simple MCP protocol implementation over stdio
 async function handleMCPRequest(request) {
@@ -106,26 +118,44 @@ async function callBrowserTool(toolName, args) {
     );
   }
 
-  const callId = Date.now().toString();
+  const callId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
   return new Promise((resolve, reject) => {
-    pendingCalls.set(callId, { resolve, reject });
+    const startTime = Date.now();
+    
+    pendingCalls.set(callId, { 
+      resolve, 
+      reject, 
+      startTime,
+      toolName,
+      args
+    });
 
-    chromeExtensionSocket.send(
-      JSON.stringify({
-        id: callId,
-        method: toolName,
-        params: args,
-      })
-    );
+    try {
+      chromeExtensionSocket.send(
+        JSON.stringify({
+          id: callId,
+          method: toolName,
+          params: args,
+        })
+      );
+    } catch (error) {
+      pendingCalls.delete(callId);
+      reject(new Error(`Failed to send tool call: ${error.message}`));
+      return;
+    }
 
-    // Timeout after 30 seconds
-    setTimeout(() => {
+    // Timeout with better error message
+    const timeoutId = setTimeout(() => {
       if (pendingCalls.has(callId)) {
         pendingCalls.delete(callId);
-        reject(new Error("Tool call timeout"));
+        const duration = Date.now() - startTime;
+        reject(new Error(`Tool call '${toolName}' timed out after ${duration}ms (limit: ${TOOL_CALL_TIMEOUT}ms)`));
       }
-    }, 30000);
+    }, TOOL_CALL_TIMEOUT);
+
+    // Store timeout ID for cleanup
+    pendingCalls.get(callId).timeoutId = timeoutId;
   });
 }
 
@@ -133,12 +163,20 @@ async function callBrowserTool(toolName, args) {
 function handleToolResponse(message) {
   const pending = pendingCalls.get(message.id);
   if (pending) {
+    // Clear timeout
+    if (pending.timeoutId) {
+      clearTimeout(pending.timeoutId);
+    }
+    
     pendingCalls.delete(message.id);
+    
     if (message.error) {
-      pending.reject(new Error(message.error.message));
+      pending.reject(new Error(message.error.message || 'Unknown tool error'));
     } else {
       pending.resolve(message.result);
     }
+  } else {
+    console.error(`Received response for unknown call ID: ${message.id}`);
   }
 }
 
@@ -146,13 +184,32 @@ function handleToolResponse(message) {
 wss.on("connection", (ws) => {
   console.error("Chrome Extension connected");
   chromeExtensionSocket = ws;
+  
+  // Update connection status
+  connectionStatus.connected = true;
+  connectionStatus.lastConnection = new Date();
+  connectionStatus.reconnectAttempts = 0;
 
-  // Set up ping/pong for keepalive
-  const pingInterval = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.ping();
-    }
-  }, 30000);
+  let pingInterval;
+  let isAlive = true;
+
+  // Set up ping/pong for keepalive with heartbeat detection
+  const setupPingPong = () => {
+    pingInterval = setInterval(() => {
+      if (!isAlive) {
+        console.error("Chrome Extension failed heartbeat check, terminating connection");
+        ws.terminate();
+        return;
+      }
+      
+      isAlive = false;
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    }, PING_INTERVAL);
+  };
+
+  setupPingPong();
 
   ws.on("message", (data) => {
     try {
@@ -163,64 +220,158 @@ wss.on("connection", (ws) => {
         console.error(`Registered ${availableTools.length} browser tools`);
       } else if (message.type === "ping") {
         // Respond to ping with pong
-        ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+        }
+      } else if (message.type === "pong") {
+        // Handle pong response
+        isAlive = true;
       } else if (message.id) {
         // Handle tool response
         handleToolResponse(message);
       }
     } catch (error) {
       console.error("Error processing message:", error);
+      console.error("Raw message data:", data.toString());
     }
   });
 
-  ws.on("close", () => {
-    console.error("Chrome Extension disconnected");
+  ws.on("close", (code, reason) => {
+    console.error(`Chrome Extension disconnected (code: ${code}, reason: ${reason || 'none'})`);
     chromeExtensionSocket = null;
-    clearInterval(pingInterval);
+    connectionStatus.connected = false;
+    
+    if (pingInterval) {
+      clearInterval(pingInterval);
+    }
+    
+    // Clean up any pending calls
+    for (const [callId, pending] of pendingCalls.entries()) {
+      if (pending.timeoutId) {
+        clearTimeout(pending.timeoutId);
+      }
+      pending.reject(new Error('WebSocket connection closed'));
+    }
+    pendingCalls.clear();
   });
 
   ws.on("error", (error) => {
     console.error("WebSocket error:", error);
+    connectionStatus.connected = false;
   });
 
   ws.on("pong", () => {
-    // Extension is alive
+    // Extension responded to ping - it's alive
+    isAlive = true;
   });
 });
 
-// Read from stdin
+// Read from stdin with improved error handling
 let inputBuffer = "";
 process.stdin.on("data", async (chunk) => {
-  inputBuffer += chunk.toString();
+  try {
+    inputBuffer += chunk.toString();
 
-  // Process complete lines
-  const lines = inputBuffer.split("\n");
-  inputBuffer = lines.pop() || "";
+    // Process complete lines
+    const lines = inputBuffer.split("\n");
+    inputBuffer = lines.pop() || "";
 
-  for (const line of lines) {
-    if (line.trim()) {
-      try {
-        const request = JSON.parse(line);
-        const response = await handleMCPRequest(request);
+    for (const line of lines) {
+      if (line.trim()) {
+        try {
+          const request = JSON.parse(line);
+          console.error(`Processing MCP request: ${request.method} (id: ${request.id || 'notification'})`);
+          
+          const response = await handleMCPRequest(request);
 
-        // Only send response if one was generated (not for notifications)
-        if (response) {
-          process.stdout.write(JSON.stringify(response) + "\n");
+          // Only send response if one was generated (not for notifications)
+          if (response) {
+            process.stdout.write(JSON.stringify(response) + "\n");
+            console.error(`Sent MCP response for: ${request.method}`);
+          }
+        } catch (error) {
+          console.error("Error processing MCP request:", error);
+          console.error("Request line:", line);
+          
+          // Send error response if we have an ID
+          try {
+            const request = JSON.parse(line);
+            if (request.id) {
+              const errorResponse = {
+                jsonrpc: "2.0",
+                id: request.id,
+                error: {
+                  code: -32603,
+                  message: error.message
+                }
+              };
+              process.stdout.write(JSON.stringify(errorResponse) + "\n");
+            }
+          } catch (parseError) {
+            console.error("Could not parse request for error response:", parseError);
+          }
         }
-      } catch (error) {
-        console.error("Error processing request:", error);
       }
     }
+  } catch (error) {
+    console.error("Error processing stdin data:", error);
   }
+});
+
+// Handle stdin errors
+process.stdin.on("error", (error) => {
+  console.error("Error reading from stdin:", error);
+});
+
+// Handle process cleanup
+process.on("SIGINT", () => {
+  console.error("Received SIGINT, shutting down gracefully...");
+  
+  // Clean up pending calls
+  for (const [callId, pending] of pendingCalls.entries()) {
+    if (pending.timeoutId) {
+      clearTimeout(pending.timeoutId);
+    }
+    pending.reject(new Error('Server shutting down'));
+  }
+  pendingCalls.clear();
+  
+  // Close WebSocket server
+  wss.close(() => {
+    console.error("WebSocket server closed");
+    process.exit(0);
+  });
+});
+
+process.on("SIGTERM", () => {
+  console.error("Received SIGTERM, shutting down gracefully...");
+  process.exit(0);
 });
 
 // Optional: HTTP endpoint for health checks
 const app = express();
 app.get("/health", (req, res) => {
+  const now = new Date();
   res.json({
-    status: "ok",
-    chromeExtensionConnected: chromeExtensionSocket !== null,
+    status: connectionStatus.connected ? "connected" : "disconnected",
+    chromeExtensionConnected: chromeExtensionSocket !== null && chromeExtensionSocket.readyState === WebSocket.OPEN,
     availableTools: availableTools.length,
+    connectionStatus: {
+      ...connectionStatus,
+      uptime: connectionStatus.lastConnection ? now - connectionStatus.lastConnection : null
+    },
+    pendingCalls: pendingCalls.size,
+    serverStartTime: process.uptime(),
+    timestamp: now.toISOString()
+  });
+});
+
+// Add endpoint to get detailed tool list
+app.get("/tools", (req, res) => {
+  res.json({
+    tools: availableTools,
+    count: availableTools.length,
+    connected: chromeExtensionSocket !== null && chromeExtensionSocket.readyState === WebSocket.OPEN
   });
 });
 
@@ -228,7 +379,18 @@ app.listen(3001, () => {
   console.error(
     "Health check endpoint available at http://localhost:3001/health"
   );
+  console.error(
+    "Tools endpoint available at http://localhost:3001/tools"
+  );
+});
+
+// WebSocket server error handling
+wss.on("error", (error) => {
+  console.error("WebSocket server error:", error);
 });
 
 console.error("Browser MCP Server started");
 console.error("Waiting for Chrome Extension connection on ws://localhost:3000");
+console.error(`Tool call timeout: ${TOOL_CALL_TIMEOUT}ms`);
+console.error(`Ping interval: ${PING_INTERVAL}ms`);
+console.error(`Process ID: ${process.pid}`);

@@ -3,6 +3,33 @@ const MCP_SERVER_URL = "ws://localhost:3000";
 let mcpSocket = null;
 let reconnectInterval = null;
 let reconnectAttempts = 0;
+let pingInterval = null;
+
+// Ping mechanism to keep connection alive
+function startPingInterval() {
+  // Clear any existing ping interval
+  if (pingInterval) {
+    clearInterval(pingInterval);
+  }
+  
+  // Send ping every 20 seconds
+  pingInterval = setInterval(() => {
+    if (mcpSocket && mcpSocket.readyState === WebSocket.OPEN) {
+      mcpSocket.send(JSON.stringify({ type: "ping", timestamp: Date.now() }));
+    } else {
+      // Stop pinging if connection is not open
+      clearInterval(pingInterval);
+      pingInterval = null;
+    }
+  }, 20000);
+}
+
+function stopPingInterval() {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
+}
 
 // Initialize WebSocket connection to MCP server
 function connectToMCPServer() {
@@ -34,6 +61,9 @@ function connectToMCPServer() {
         })
       );
 
+      // Start ping mechanism to keep connection alive
+      startPingInterval();
+
       // Notify popup of connection
       try {
         chrome.runtime.sendMessage({ type: "statusUpdate", connected: true });
@@ -53,6 +83,9 @@ function connectToMCPServer() {
 
     mcpSocket.onclose = (event) => {
       console.log("Disconnected from MCP server", event.code, event.reason);
+
+      // Stop ping interval
+      stopPingInterval();
 
       // Notify popup of disconnection
       try {
@@ -82,6 +115,10 @@ function connectToMCPServer() {
     };
   } catch (error) {
     console.error("Failed to create WebSocket:", error);
+    
+    // Stop ping interval if it was running
+    stopPingInterval();
+    
     // Try again in 5 seconds
     if (!reconnectInterval) {
       reconnectInterval = setTimeout(() => {
@@ -256,7 +293,24 @@ function getAvailableTools() {
 
 // Handle MCP requests
 async function handleMCPRequest(message) {
-  const { id, method, params } = message;
+  const { id, method, params, type } = message;
+
+  // Handle ping/pong messages for connection keepalive
+  if (type === "ping") {
+    mcpSocket.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+    return;
+  }
+  
+  if (type === "pong") {
+    // Server responded to our ping
+    return;
+  }
+
+  // Handle regular method calls
+  if (!method) {
+    console.warn("Received message without method:", message);
+    return;
+  }
 
   try {
     let result;

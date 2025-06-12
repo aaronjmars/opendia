@@ -831,6 +831,51 @@ To add new browser functions:
 
 ## Troubleshooting
 
+### Common Issues
+
 - **Extension not connecting**: Check that the MCP server is running on port 3000
 - **Tools not available**: Verify the extension is loaded and check the popup for connection status
 - **Permission errors**: Ensure the extension has the necessary permissions in manifest.json
+
+### Installation Issues
+
+- **"Cannot find module 'ws'" error**: Run `npm install` in the `mcp-server` directory to install dependencies
+  ```bash
+  cd mcp-server
+  npm install
+  ```
+
+### Connection Stability
+
+The server now includes improved connection stability features:
+
+- **Heartbeat monitoring**: Automatic ping/pong between extension and server
+- **Graceful reconnection**: Extension automatically reconnects with exponential backoff
+- **Better error handling**: More detailed error messages and logging
+- **Increased timeouts**: Tool calls now have 60-second timeout (previously 30s)
+
+### Health Monitoring
+
+Check server status using the health endpoints:
+
+```bash
+# Check server health
+curl http://localhost:3001/health
+
+# List available tools
+curl http://localhost:3001/tools
+```
+
+Or use npm scripts:
+```bash
+cd mcp-server
+npm run health
+npm run tools
+```
+
+### Debug Logging
+
+The server logs detailed information to stderr for debugging:
+- Connection events
+- Tool call requests and responses
+- Error messages with context
