@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/aaronjmars-opendia-badge.png)](https://mseep.ai/app/aaronjmars-opendia)
+
 # OpenDia <img src="opendia-extension/icon-128.png" alt="OpenDia" width="32" height="32">
 
 **The open alternative to Dia**  
