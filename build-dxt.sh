@@ -127,9 +127,6 @@ cat > dist/opendia-dxt/manifest.json << 'EOF'
   "license": "MIT", 
   "keywords": ["browser", "automation", "mcp", "ai", "claude", "chrome", "firefox", "extension", "twitter", "linkedin", "facebook", "anti-detection"],
   "icon": "icon.png",
-  "icons": {
-    "128": "icon.png"
-  },
   
   "server": {
     "type": "node",
@@ -153,16 +150,16 @@ cat > dist/opendia-dxt/manifest.json << 'EOF'
       "title": "WebSocket Port",
       "description": "Port for Chrome/Firefox extension connection",
       "default": 5555,
-      "minimum": 1024,
-      "maximum": 65535
+      "min": 1024,
+      "max": 65535
     },
     "http_port": {
       "type": "number",
       "title": "HTTP Port", 
       "description": "Port for HTTP/SSE server",
       "default": 5556,
-      "minimum": 1024,
-      "maximum": 65535
+      "min": 1024,
+      "max": 65535
     },
     "enable_tunnel": {
       "type": "boolean",
@@ -251,30 +248,7 @@ cat > dist/opendia-dxt/manifest.json << 'EOF'
       "name": "page_style",
       "description": "🎨 Transform page appearance with themes and effects"
     }
-  ],
-  
-  "capabilities": {
-    "browser_automation": true,
-    "anti_detection": true,
-    "background_tabs": true,
-    "multi_tab_workflows": true,
-    "content_extraction": true,
-    "form_filling": true,
-    "social_media_posting": true,
-    "page_styling": true,
-    "bookmark_management": true,
-    "history_search": true,
-    "tab_management": true
-  },
-  
-  "requirements": {
-    "browser_extension": {
-      "name": "OpenDia Browser Extension",
-      "description": "Required Chrome/Firefox extension for browser automation by Aaron Elijah Mars",
-      "version": "1.1.0",
-      "auto_install": false
-    }
-  }
+  ]
 }
 EOF
 
