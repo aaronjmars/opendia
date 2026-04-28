@@ -1656,18 +1656,21 @@ app.route('/sse')
   .post(async (req, res) => {
     // MCP requests from online AI
     console.error('MCP request received via SSE:', req.body);
-    
+
     try {
-      const result = await handleMCPRequest(req.body);
-      res.json({
-        jsonrpc: "2.0",
-        id: req.body.id,
-        result: result
-      });
+      // handleMCPRequest already returns a complete JSON-RPC response
+      // (or null for notifications) — forward as-is, matching the stdio path.
+      const response = await handleMCPRequest(req.body);
+      if (response === null) {
+        // JSON-RPC notification: no response body per spec
+        res.status(204).end();
+      } else {
+        res.json(response);
+      }
     } catch (error) {
       res.status(500).json({
         jsonrpc: "2.0",
-        id: req.body.id,
+        id: req.body?.id ?? null,
         error: { code: -32603, message: error.message }
       });
     }
