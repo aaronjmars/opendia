@@ -44,6 +44,20 @@ Works with **Chrome, Firefox, and any Chromium-based browser**:
 
 Also perfect for **Cursor users** who want to automate their local testing and development workflows!
 
+## 🔌 Compatible AI Clients
+
+OpenDia exposes a standard MCP server, so it works with any client that speaks the protocol.
+
+**Tested:**
+- **Claude Desktop** — paste the config below, restart.
+- **Claude Code** — same MCP config, runs from any terminal.
+- **Cursor** — add via Settings → MCP, or paste the same JSON.
+- **ChatGPT** — works with Auto-Tunnel mode (`npx opendia --tunnel`), then add the ngrok URL as a connector.
+
+**Should work** (any MCP-compatible client): Windsurf, Zed, Continue, Cline, Goose, Open WebUI.
+
+Wired it up with something else? Open a PR — the list grows as MCP grows.
+
 ## 🎬 What You Can Do
 
 **Real workflows you can try today:**
