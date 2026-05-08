@@ -1565,6 +1565,17 @@ function handleToolResponse(message) {
 // Setup WebSocket connection handlers
 function setupWebSocketHandlers() {
   wss.on("connection", (ws) => {
+    // If an old extension socket is still tracked, close it before replacing
+    // so the previous connection's close handler can't later null out the new one.
+    if (chromeExtensionSocket && chromeExtensionSocket !== ws) {
+      console.error("Replacing existing Browser Extension connection");
+      try {
+        chromeExtensionSocket.close();
+      } catch (e) {
+        // ignore — socket may already be half-closed
+      }
+    }
+
     console.error("Browser Extension connected");
     chromeExtensionSocket = ws;
 
@@ -1602,10 +1613,18 @@ function setupWebSocketHandlers() {
     });
 
     ws.on("close", () => {
-      console.error("Browser Extension disconnected");
-      chromeExtensionSocket = null;
-      availableTools = []; // Clear tools when extension disconnects
       clearInterval(pingInterval);
+      // Only clear tracked state if THIS socket is still the active one.
+      // Without this guard, a stale close event from a previous connection
+      // can null out a freshly reconnected extension and make the server
+      // falsely report "extension not connected" until the user restarts.
+      if (chromeExtensionSocket === ws) {
+        console.error("Browser Extension disconnected");
+        chromeExtensionSocket = null;
+        availableTools = []; // Clear tools when extension disconnects
+      } else {
+        console.error("Stale Browser Extension socket closed (already replaced)");
+      }
     });
 
     ws.on("error", (error) => {
