@@ -1862,7 +1862,7 @@ async function startServer() {
         console.error('💡 Claude Web: Add as external MCP server (if supported)');
         console.error('');
         console.error('🏠 Local access still available:');
-        console.error('🔗 http://localhost:3001/sse');
+        console.error(`🔗 http://localhost:${HTTP_PORT}/sse`);
         console.error('');
         
         // Store ngrok process for cleanup
