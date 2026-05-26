@@ -153,6 +153,8 @@ let availableTools = [];
 
 // Tool call tracking
 const pendingCalls = new Map();
+// Monotonic counter so concurrent tool calls can never share a call id.
+let callIdCounter = 0;
 
 // Simple MCP protocol implementation over stdio
 async function handleMCPRequest(request) {
@@ -1526,7 +1528,11 @@ async function callBrowserTool(toolName, args) {
     );
   }
 
-  const callId = Date.now().toString();
+  // Date.now() alone collides when two calls fire in the same millisecond
+  // (concurrent SSE POSTs, hybrid stdio+SSE, or parallel tool calls). A
+  // collision overwrites the pending resolver, cross-wiring one call's
+  // response onto another and leaving the loser to hit the 30s timeout.
+  const callId = `${Date.now()}-${++callIdCounter}`;
 
   return new Promise((resolve, reject) => {
     pendingCalls.set(callId, { resolve, reject });
