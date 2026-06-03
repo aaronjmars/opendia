@@ -32,7 +32,7 @@
       "src/polyfill/browser-polyfill.min.js",
       "src/background/background.js"
     ],
-    "persistent": false
+    "persistent": true
   },
   "browser_action": {
     "default_popup": "src/popup/popup.html",
