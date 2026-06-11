@@ -1535,7 +1535,17 @@ async function callBrowserTool(toolName, args) {
   const callId = `${Date.now()}-${++callIdCounter}`;
 
   return new Promise((resolve, reject) => {
-    pendingCalls.set(callId, { resolve, reject });
+    // Track the timeout on the pending entry so it can be cleared when a
+    // response arrives or the extension disconnects — otherwise every call
+    // leaks a 30s timer until it fires.
+    const timeout = setTimeout(() => {
+      if (pendingCalls.has(callId)) {
+        pendingCalls.delete(callId);
+        reject(new Error("Tool call timeout"));
+      }
+    }, 30000);
+
+    pendingCalls.set(callId, { resolve, reject, timeout });
 
     chromeExtensionSocket.send(
       JSON.stringify({
@@ -1544,14 +1554,6 @@ async function callBrowserTool(toolName, args) {
         params: args,
       })
     );
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      if (pendingCalls.has(callId)) {
-        pendingCalls.delete(callId);
-        reject(new Error("Tool call timeout"));
-      }
-    }, 30000);
   });
 }
 
@@ -1559,6 +1561,7 @@ async function callBrowserTool(toolName, args) {
 function handleToolResponse(message) {
   const pending = pendingCalls.get(message.id);
   if (pending) {
+    clearTimeout(pending.timeout);
     pendingCalls.delete(message.id);
     if (message.error) {
       pending.reject(new Error(message.error.message));
@@ -1628,6 +1631,21 @@ function setupWebSocketHandlers() {
         console.error("Browser Extension disconnected");
         chromeExtensionSocket = null;
         availableTools = []; // Clear tools when extension disconnects
+        // Reject any in-flight tool calls immediately so the MCP client
+        // sees a real error instead of hanging for up to 30s waiting on
+        // a socket that's gone.
+        if (pendingCalls.size > 0) {
+          console.error(
+            `Rejecting ${pendingCalls.size} in-flight tool call(s) due to extension disconnect`
+          );
+          for (const pending of pendingCalls.values()) {
+            clearTimeout(pending.timeout);
+            pending.reject(
+              new Error("Browser Extension disconnected mid-call")
+            );
+          }
+          pendingCalls.clear();
+        }
       } else {
         console.error("Stale Browser Extension socket closed (already replaced)");
       }
