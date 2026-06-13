@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  mcp:
+    name: MCP server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: opendia-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: opendia-mcp/package-lock.json
+      - run: npm ci
+      - name: Syntax-check server
+        run: node --check server.js
+
+  extension:
+    name: Browser extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: opendia-extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: opendia-extension/package-lock.json
+      - run: npm ci
+      - name: Build Chrome + Firefox
+        run: npm run build
+      - name: Validate builds
+        run: node build.js validate
+      - name: Structure tests
+        run: node test-extension.js
+      - name: Lint Firefox build (web-ext)
+        run: npx web-ext lint --source-dir=dist/firefox --self-hosted
