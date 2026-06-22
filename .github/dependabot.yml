@@ -1,0 +1,43 @@
+version: 2
+updates:
+  # MCP server (Node.js)
+  - package-ecosystem: npm
+    directory: /opendia-mcp
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(mcp-deps)
+    groups:
+      mcp-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Browser extension (Node.js)
+  - package-ecosystem: npm
+    directory: /opendia-extension
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(ext-deps)
+    groups:
+      ext-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions used by the CI workflow
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(ci-deps)
+    groups:
+      actions-minor-and-patch:
+        update-types:
+          - minor
+          - patch
