@@ -1720,7 +1720,7 @@ app.route('/sse')
   });
 
 // ADD: CORS preflight handler
-app.options('*', (req, res) => {
+app.options('/*splat', (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Cache-Control');
