@@ -22,7 +22,7 @@
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
-    "fs-extra": "^11.3.5",
+    "fs-extra": "^11.3.6",
     "web-ext": "^10.4.0"
   }
 }
