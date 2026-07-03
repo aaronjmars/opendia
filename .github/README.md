@@ -1,4 +1,4 @@
-# OpenDia <img src="opendia-extension/icons/icon-128.png" alt="OpenDia" width="32" height="32">
+# OpenDia <img src="../opendia-extension/icons/icon-128.png" alt="OpenDia" width="32" height="32">
 
 **The open alternative to Dia / Perplexity Comet**  
 Connect your browser to AI models. 
@@ -11,7 +11,7 @@ If you are not technical / never used MCPs before, we recommend using **[Perplex
 
 ## 📺 See it in Action
 
-![OpenDia Demo](./preview.gif)
+![OpenDia Demo](../preview.gif)
 
 ## 🚀 What is OpenDia?
 
