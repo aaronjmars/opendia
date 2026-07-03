@@ -201,7 +201,7 @@ npm start
 
 ## 📝 License
 
-MIT License - see [LICENSE](../.github/LICENSE) for details.
+MIT License - see [LICENSE](../LICENSE) for details.
 
 ---
 
