@@ -1,6 +1,6 @@
 {
   "name": "opendia",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "🎯 OpenDia - The open alternative to Dia. Connect your browser to AI models with anti-detection bypass for Twitter/X, LinkedIn, Facebook",
   "main": "server.js",
   "bin": {
