@@ -90,4 +90,4 @@ you ran in default or `--tunnel` mode, and what you expected vs. what happened.
 ## License
 
 By contributing, you agree that your contributions are licensed under the
-repository's [LICENSE](LICENSE) (MIT).
+repository's [LICENSE](../LICENSE) (MIT).
