@@ -23,6 +23,6 @@
   },
   "devDependencies": {
     "fs-extra": "^11.3.6",
-    "web-ext": "^10.4.0"
+    "web-ext": "^10.5.0"
   }
 }
