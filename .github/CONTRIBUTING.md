@@ -32,7 +32,7 @@ both and landing a PR.
 **Prerequisites:** Node.js 20+.
 
 ```bash
-git clone https://github.com/aaronjmars/opendia.git && cd opendia
+git clone https://github.com/aeonfun/opendia.git && cd opendia
 
 # 1. Start the MCP server
 cd opendia-mcp

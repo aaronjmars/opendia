@@ -6,7 +6,7 @@ No browser switching needed—works seamlessly with Chrome, Firefox, and any Chr
 If you are not technical / never used MCPs before, we recommend using **[Perplexity Comet](https://pplx.ai/leosimon)**.
 
 [![npm version](https://img.shields.io/npm/v/opendia)](https://www.npmjs.com/package/opendia)
-[![GitHub release](https://img.shields.io/github/release/aaronjmars/opendia.svg)](https://github.com/aaronjmars/opendia/releases/latest)
+[![GitHub release](https://img.shields.io/github/release/aeonfun/opendia.svg)](https://github.com/aeonfun/opendia/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 📺 See it in Action
@@ -98,14 +98,14 @@ Wired it up with something else? Open a PR — the list grows as MCP grows.
 ### 1. Install the Browser Extension
 
 **For Chrome/Chromium browsers:**
-1. Download `opendia-chrome-1.1.0.zip` from [releases](https://github.com/aaronjmars/opendia/releases)
+1. Download `opendia-chrome-1.1.0.zip` from [releases](https://github.com/aeonfun/opendia/releases)
 2. Extract the zip file to a folder
 3. Go to `chrome://extensions/` (or your browser's extension page)
 4. Enable "Developer mode"
 5. Click "Load unpacked" and select the extracted folder
 
 **For Firefox:**
-1. Download `opendia-firefox-1.1.0.zip` from [releases](https://github.com/aaronjmars/opendia/releases)
+1. Download `opendia-firefox-1.1.0.zip` from [releases](https://github.com/aeonfun/opendia/releases)
 2. Extract the zip file to a folder
 3. Go to `about:debugging#/runtime/this-firefox`
 4. Click "Load Temporary Add-on..."
@@ -116,7 +116,7 @@ Wired it up with something else? Open a PR — the list grows as MCP grows.
 ### 2. Connect to Your AI
 
 **Option 1: Double-click Installation (Recommended)**
-1. Download the `opendia.dxt` file from [releases](https://github.com/aaronjmars/opendia/releases)
+1. Download the `opendia.dxt` file from [releases](https://github.com/aeonfun/opendia/releases)
 2. Double-click the `.dxt` file to install automatically
 3. The MCP will be added to your Claude Desktop configuration
 
@@ -292,7 +292,7 @@ Love to have your help making OpenDia better!
 
 ### Quick Development Setup
 ```bash
-git clone https://github.com/aaronjmars/opendia.git
+git clone https://github.com/aeonfun/opendia.git
 cd opendia
 
 # Start the server
@@ -307,7 +307,7 @@ npm start
 ```
 
 ### Ways to Contribute
-- 🐛 **Report bugs** via [GitHub Issues](https://github.com/aaronjmars/opendia/issues)
+- 🐛 **Report bugs** via [GitHub Issues](https://github.com/aeonfun/opendia/issues)
 - 💡 **Share it on social medias**
 - 🔧 **Add new browser capabilities** 
 - 📖 **Improve documentation**

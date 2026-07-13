@@ -26,15 +26,15 @@
     "facebook",
     "anti-detection"
   ],
-  "author": "OpenDia Team",
+  "author": "Aeon Inc",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aaronjmars/opendia.git"
+    "url": "https://github.com/aeonfun/opendia.git"
   },
-  "homepage": "https://github.com/aaronjmars/opendia",
+  "homepage": "https://github.com/aeonfun/opendia",
   "bugs": {
-    "url": "https://github.com/aaronjmars/opendia/issues"
+    "url": "https://github.com/aeonfun/opendia/issues"
   },
   "dependencies": {
     "cors": "^2.8.5",
