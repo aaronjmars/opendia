@@ -55,7 +55,7 @@ cat > dist/opendia-dxt/package.json << 'EOF'
     "anti-detection",
     "dxt"
   ],
-  "author": "Aaron Elijah Mars <aeonfun@proton.me>",
+  "author": "Aeon Inc",
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
@@ -119,8 +119,7 @@ cat > dist/opendia-dxt/manifest.json << 'EOF'
   "version": "1.1.0",
   "description": "🎯 OpenDia - The open alternative to Dia. Connect your browser to AI models with anti-detection bypass for Twitter/X, LinkedIn, Facebook + universal automation",
   "author": {
-    "name": "Aaron Elijah Mars",
-    "email": "aeonfun@proton.me",
+    "name": "Aeon Inc",
     "url": "https://github.com/aeonfun/opendia"
   },
   "homepage": "https://github.com/aeonfun/opendia",
