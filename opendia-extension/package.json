@@ -16,7 +16,7 @@
     "mcp",
     "browser-automation"
   ],
-  "author": "Aaron J Mars",
+  "author": "Aeon Inc",
   "license": "MIT",
   "dependencies": {
     "webextension-polyfill": "^0.12.0"

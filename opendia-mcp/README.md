@@ -77,7 +77,7 @@ npx opendia
 ```
 
 ### 2. Install the Browser Extension
-1. Download from [releases](https://github.com/aaronjmars/opendia/releases)
+1. Download from [releases](https://github.com/aeonfun/opendia/releases)
 2. Go to `chrome://extensions/` (or your browser's extension page)
 3. Enable "Developer mode"
 4. Click "Load unpacked" and select the extension folder
@@ -180,7 +180,7 @@ Love to have your help making OpenDia better!
 
 ### Quick Development Setup
 ```bash
-git clone https://github.com/aaronjmars/opendia.git
+git clone https://github.com/aeonfun/opendia.git
 cd opendia
 
 # Start the server
@@ -193,7 +193,7 @@ npm start
 ```
 
 ### Ways to Contribute
-- 🐛 **Report bugs** via [GitHub Issues](https://github.com/aaronjmars/opendia/issues)
+- 🐛 **Report bugs** via [GitHub Issues](https://github.com/aeonfun/opendia/issues)
 - 💡 **Share it on social medias**
 - 🔧 **Add new browser capabilities** 
 - 📖 **Improve documentation**

@@ -55,7 +55,7 @@ cat > dist/opendia-dxt/package.json << 'EOF'
     "anti-detection",
     "dxt"
   ],
-  "author": "Aaron Elijah Mars <aaronjmars@proton.me>",
+  "author": "Aeon Inc",
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
@@ -119,11 +119,10 @@ cat > dist/opendia-dxt/manifest.json << 'EOF'
   "version": "1.1.0",
   "description": "🎯 OpenDia - The open alternative to Dia. Connect your browser to AI models with anti-detection bypass for Twitter/X, LinkedIn, Facebook + universal automation",
   "author": {
-    "name": "Aaron Elijah Mars",
-    "email": "aaronjmars@proton.me",
-    "url": "https://github.com/aaronjmars/opendia"
+    "name": "Aeon Inc",
+    "url": "https://github.com/aeonfun/opendia"
   },
-  "homepage": "https://github.com/aaronjmars/opendia",
+  "homepage": "https://github.com/aeonfun/opendia",
   "license": "MIT", 
   "keywords": ["browser", "automation", "mcp", "ai", "claude", "chrome", "firefox", "extension", "twitter", "linkedin", "facebook", "anti-detection"],
   "icon": "icon.png",
@@ -269,7 +268,7 @@ cp LICENSE dist/opendia-dxt/ 2>/dev/null || echo "⚠️  LICENSE not found, ski
 cat > dist/opendia-dxt/EXTENSION_INSTALL.md << 'EOF'
 # OpenDia Browser Extension Installation
 
-**🔗 Official Repository:** https://github.com/aaronjmars/opendia
+**🔗 Official Repository:** https://github.com/aeonfun/opendia
 
 ## Complete Installation Guide
 
@@ -279,7 +278,7 @@ cat > dist/opendia-dxt/EXTENSION_INSTALL.md << 'EOF'
 ### Step 2: Install Browser Extension
 
 **📦 Get Latest Extension:**
-Download the latest extension from: https://github.com/aaronjmars/opendia/releases
+Download the latest extension from: https://github.com/aeonfun/opendia/releases
 
 **Or use the included extension in this DXT package:**
 
@@ -330,9 +329,9 @@ Download the latest extension from: https://github.com/aaronjmars/opendia/releas
 
 ## Getting Help
 
-- **📖 Full Documentation:** https://github.com/aaronjmars/opendia
-- **🐛 Report Issues:** https://github.com/aaronjmars/opendia/issues
-- **💬 Discussions:** https://github.com/aaronjmars/opendia/discussions
+- **📖 Full Documentation:** https://github.com/aeonfun/opendia
+- **🐛 Report Issues:** https://github.com/aeonfun/opendia/issues
+- **💬 Discussions:** https://github.com/aeonfun/opendia/discussions
 
 ## What's Next?
 

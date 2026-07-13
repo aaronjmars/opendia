@@ -13,7 +13,7 @@ problem privately.
 **Please don't open a public issue for a security problem.** Use GitHub's
 **Private Vulnerability Reporting (PVR)** instead:
 
-➡️ **[Report a vulnerability](https://github.com/aaronjmars/opendia/security/advisories/new)**
+➡️ **[Report a vulnerability](https://github.com/aeonfun/opendia/security/advisories/new)**
 
 (Repo → **Security** tab → **Report a vulnerability**.) This opens a private
 advisory that only the maintainers can see — never a public issue, so a fix can
@@ -46,7 +46,7 @@ rather stay anonymous.
 ## Supported versions
 
 Security fixes land on the `main` branch of
-[`aaronjmars/opendia`](https://github.com/aaronjmars/opendia) and the latest
+[`aeonfun/opendia`](https://github.com/aeonfun/opendia) and the latest
 published [`opendia`](https://www.npmjs.com/package/opendia) npm release + extension
 build.
 
