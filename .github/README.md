@@ -1,17 +1,31 @@
-# OpenDia <img src="../opendia-extension/icons/icon-128.png" alt="OpenDia" width="32" height="32">
+<p align="center">
+  <img src="../opendia-extension/icons/icon-128.png" alt="OpenDia" width="120" />
+</p>
 
-**The open alternative to Dia / Perplexity Comet**  
-Connect your browser to AI models. 
-No browser switching needed—works seamlessly with Chrome, Firefox, and any Chromium browser. Private, local-first & MCP focused.
-If you are not technical / never used MCPs before, we recommend using **[Perplexity Comet](https://pplx.ai/leosimon)**.
+<h1 align="center">OPENDIA</h1>
 
-[![npm version](https://img.shields.io/npm/v/opendia)](https://www.npmjs.com/package/opendia)
-[![GitHub release](https://img.shields.io/github/release/aeonfun/opendia.svg)](https://github.com/aeonfun/opendia/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <a href="https://github.com/aeonfun/opendia/stargazers"><img src="https://img.shields.io/github/stars/aeonfun/opendia?style=flat-square&logo=github" alt="GitHub stars"></a>
+  <a href="https://github.com/aeonfun/opendia/network/members"><img src="https://img.shields.io/github/forks/aeonfun/opendia?style=flat-square&logo=github" alt="GitHub forks"></a>
+  <a href="https://www.npmjs.com/package/opendia"><img src="https://img.shields.io/npm/v/opendia?style=flat-square&logo=npm" alt="npm version"></a>
+  <a href="https://x.com/aeonframework"><img src="https://img.shields.io/badge/Follow-%40aeonframework-black?style=flat-square&logo=x&labelColor=000000" alt="Follow on X"></a>
+  <a href="https://bankr.bot/discover/0xbf8e8f0e8866a7052f948c16508644347c57aba3"><img src="https://img.shields.io/badge/Aeon%20on-Bankr-orange?style=flat-square&labelColor=1a1a2e" alt="Aeon on Bankr"></a>
+</p>
 
-## 📺 See it in Action
+<p align="center">
+  <strong>The open alternative to Dia / Perplexity Comet.</strong><br>
+  Connect your browser to AI models &mdash; no browser switching needed. Works seamlessly with Chrome, Firefox, and any Chromium browser. Private, local-first &amp; MCP focused.
+</p>
 
-![OpenDia Demo](../preview.gif)
+<p align="center">
+  <img src="../preview.gif" alt="OpenDia Demo" />
+</p>
+
+<p align="center">
+  <sub>New to MCPs, or not technical? We recommend <a href="https://pplx.ai/leosimon">Perplexity Comet</a>.</sub>
+</p>
+
+---
 
 ## 🚀 What is OpenDia?
 
