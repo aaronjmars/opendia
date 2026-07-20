@@ -40,7 +40,8 @@ itself rather than reconstructing it at tag time.
   `Origin` is rejected, and CORS is reflected only for allowed origins. (#55)
 - Override `adm-zip` to `^0.6.0`, clearing GHSA-xcpc-8h2w-3j85 (crafted ZIP triggers
   a 4GB allocation). Dev-only and not reachable from `web-ext lint`; the override
-  exists because `firefox-profile` pins `~0.5.x` and cannot reach the patch. (#56)
+  exists because `firefox-profile` pins `~0.5.x` and cannot reach the patch. It is a
+  stopgap — removal is tracked in #58. (#56)
 - Bump `node-forge` to 1.4.0 and `brace-expansion` to 1.1.15. (#43)
 
 ### Maintenance
