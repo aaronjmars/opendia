@@ -1571,6 +1571,38 @@ function handleToolResponse(message) {
   }
 }
 
+// Gate the control-channel handshake.
+//
+// The loopback bind already keeps other machines out. This closes the remaining
+// hole: a web page the user visits can also reach 127.0.0.1, and a page that
+// connects would be handed the extension's slot. Browsers always send Origin on
+// a cross-origin WebSocket handshake, so a page announces itself as http(s).
+// Extension service workers send an extension-scheme Origin; local non-browser
+// clients (test-extension.js) send none.
+function isLoopback(address) {
+  return (
+    address === "127.0.0.1" ||
+    address === "::1" ||
+    address === "::ffff:127.0.0.1"
+  );
+}
+
+function verifyExtensionClient(info, done) {
+  const remote = info.req.socket.remoteAddress;
+  if (!isLoopback(remote)) {
+    console.error(`🚫 Rejected WebSocket handshake from non-loopback ${remote}`);
+    return done(false, 403, "Forbidden");
+  }
+
+  const origin = info.origin || info.req.headers.origin;
+  if (origin && !/^(chrome|moz|safari-web)-extension:\/\//.test(origin)) {
+    console.error(`🚫 Rejected WebSocket handshake from origin ${origin}`);
+    return done(false, 403, "Forbidden");
+  }
+
+  return done(true);
+}
+
 // Setup WebSocket connection handlers
 function setupWebSocketHandlers() {
   wss.on("connection", (ws) => {
@@ -1817,8 +1849,17 @@ async function startServer() {
     console.error(`🔄 HTTP port adjusted to ${HTTP_PORT} to avoid WebSocket conflict`);
   }
   
-  // Initialize WebSocket server after port resolution
-  wss = new WebSocket.Server({ port: WS_PORT });
+  // Initialize WebSocket server after port resolution.
+  // Bound to loopback: this socket is the browser-automation control channel, and
+  // whoever holds it becomes chromeExtensionSocket (see setupWebSocketHandlers).
+  // The extension connects to ws://localhost:5555 from the same machine, and the
+  // optional ngrok tunnel forwards the HTTP port only, so nothing legitimate
+  // needs this reachable off-host.
+  wss = new WebSocket.Server({
+    port: WS_PORT,
+    host: "127.0.0.1",
+    verifyClient: verifyExtensionClient,
+  });
   
   // Set up WebSocket connection handling
   setupWebSocketHandlers();
