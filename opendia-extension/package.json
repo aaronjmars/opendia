@@ -24,5 +24,8 @@
   "devDependencies": {
     "fs-extra": "^11.3.6",
     "web-ext": "^10.5.0"
+  },
+  "overrides": {
+    "adm-zip": "^0.6.0"
   }
 }
