@@ -60,16 +60,28 @@ build.
 The trust boundary is **your machine**. The MCP server and extension are designed
 to talk only to each other, locally.
 
-- **The local server is localhost-scoped by default.** The extension auto-connects
-  to `ws://localhost:5555`; SSE is on `http://localhost:5556`. Anything that lets an
-  arbitrary web page or a *different* extension reach that bridge and issue browser
-  actions is a serious finding.
-- **`--tunnel` mode is opt-in and public.** `npx opendia --tunnel` publishes the
-  local server through an ngrok tunnel so a remote client (e.g. ChatGPT) can reach
-  it. **Anyone who learns that URL can drive your browser with your logged-in
-  sessions.** Treat the tunnel URL as a secret, only enable it when you need it, and
-  shut it down afterward. Weaknesses in how the tunnel is exposed or authenticated
-  are in scope.
+- **The local server is localhost-scoped by default.** Both listeners bind
+  `127.0.0.1` — the extension auto-connects to `ws://localhost:5555`, and SSE is on
+  `http://localhost:5556`. Anything that lets an arbitrary web page or a *different*
+  extension reach that bridge and issue browser actions is a serious finding.
+- **Loopback alone does not keep web pages out**, because a page you visit can also
+  reach `127.0.0.1`. Both the WebSocket handshake and the HTTP surface therefore
+  refuse any request carrying a page Origin: browsers send `Origin` cross-origin, so
+  `http(s)://…` and sandboxed `null` are rejected, while extension service workers
+  (`chrome-extension://`, `moz-extension://`, `safari-web-extension://`) and
+  non-browser MCP clients (which send no `Origin`) are allowed. `Access-Control-Allow-Origin`
+  is never `*`; it is reflected only for allowed origins, so a page cannot read a
+  response even to a request it manages to send.
+- **Reaching past this machine requires a token.** `--tunnel` (ngrok) and
+  `--http-host=<addr>` both put `/sse` somewhere other people can reach, so both
+  turn on bearer-token auth: the server generates a token at startup and prints it,
+  or you pin one with `--token=<value>`. Callers send `Authorization: Bearer <token>`.
+  **Anyone who learns the tunnel URL *and* the token can drive your browser with your
+  logged-in sessions** — treat both as secrets, only enable the tunnel when you need
+  it, and shut it down afterward. Weaknesses in how the tunnel is exposed or
+  authenticated are in scope.
+- **The WebSocket control channel is never widened.** `--http-host` moves only the
+  HTTP/SSE listener; the extension channel stays on loopback regardless.
 - **The extension acts as you.** Because it uses your existing cookies, sessions,
   and saved credentials, every action runs with your authority. Only pair OpenDia
   with an AI client you trust — a malicious or prompt-injected model can ask the
