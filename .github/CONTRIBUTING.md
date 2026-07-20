@@ -78,6 +78,22 @@ npx web-ext lint --source-dir=dist/firefox --self-hosted   # Firefox lint
 - Reproduce the CI steps above locally and confirm they pass.
 - If you changed permissions, the tunnel, or the message bridge, call it out
   explicitly in the description — those touch the trust boundary.
+- Add a line to **Unreleased** in [`CHANGELOG.md`](CHANGELOG.md) if the change is
+  user-visible. Anything that makes an existing setup stop working goes under
+  `⚠️ Breaking`, with the migration step spelled out.
+
+## Releasing
+
+`.github/workflows/publish.yml` publishes `opendia-mcp/` to npm on a `v*` tag, so
+the tag is the point of no return. Before pushing one:
+
+1. Read **Unreleased** in [`CHANGELOG.md`](CHANGELOG.md) top to bottom. A
+   `⚠️ Breaking` entry means the release is a **major** bump, and the migration
+   step belongs at the top of the GitHub release notes — that is what users
+   actually read when something of theirs stops working.
+2. Rename `Unreleased` to the version and date, and open a fresh empty one.
+3. Bump `version` in `opendia-mcp/package.json` to match.
+4. Tag and push; write the release notes from the section you just closed.
 
 ## Reporting bugs & requesting features
 
