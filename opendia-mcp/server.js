@@ -7,6 +7,7 @@ const { exec } = require('child_process');
 
 // ADD: New imports for SSE transport
 const cors = require('cors');
+const crypto = require('crypto');
 const { createServer } = require('http');
 const { spawn } = require('child_process');
 
@@ -20,6 +21,26 @@ const killExisting = args.includes('--kill-existing');
 const wsPortArg = args.find(arg => arg.startsWith('--ws-port='));
 const httpPortArg = args.find(arg => arg.startsWith('--http-port='));
 const portArg = args.find(arg => arg.startsWith('--port='));
+
+// `POST /sse` hands whatever it receives to handleMCPRequest, which drives the
+// browser through the extension. Keep that surface on loopback by default; the
+// extension reaches it at localhost and `ngrok http` connects from this machine
+// too, so neither needs an off-host bind. --http-host= widens it deliberately.
+const httpHostArg = args.find(arg => arg.startsWith('--http-host='));
+const HTTP_HOST = httpHostArg ? httpHostArg.split('=')[1] : '127.0.0.1';
+
+function isLoopbackHost(host) {
+  return host === '127.0.0.1' || host === '::1' || host === 'localhost';
+}
+
+// Once the MCP surface is reachable beyond this machine — widened bind or an
+// ngrok tunnel — loopback stops being the boundary and callers must present a
+// token. Locally it stays off so existing setups keep working untouched.
+const tokenArg = args.find(arg => arg.startsWith('--token='));
+const requiresToken = enableTunnel || !isLoopbackHost(HTTP_HOST);
+const AUTH_TOKEN = requiresToken
+  ? (tokenArg ? tokenArg.split('=')[1] : crypto.randomBytes(24).toString('hex'))
+  : null;
 
 // Default ports (changed from 3000/3001 to 5555/5556)
 let WS_PORT = wsPortArg ? parseInt(wsPortArg.split('=')[1]) : (portArg ? parseInt(portArg.split('=')[1]) : 5555);
@@ -143,7 +164,55 @@ async function handlePortConflict(port, portName) {
 
 // ADD: Express app setup
 const app = express();
-app.use(cors());
+
+// Loopback is not a trust boundary for a browser: a page the user visits can
+// reach 127.0.0.1 too. Same rule the WebSocket handshake uses — a page announces
+// itself with an http(s) Origin (or "null" when sandboxed) and is refused, while
+// extension service workers send an extension-scheme Origin and non-browser MCP
+// clients send none.
+const EXTENSION_ORIGIN = /^(chrome|moz|safari-web)-extension:\/\//;
+
+function isAllowedOrigin(origin) {
+  return !origin || EXTENSION_ORIGIN.test(origin);
+}
+
+// Never reflect `*`, or a page could read the response to a request it is
+// allowed to send. Denying the origin only omits the header; the hard refusal is
+// guardOrigin below, so a simple request that skips preflight is still blocked.
+app.use(cors({
+  origin: (origin, callback) => callback(null, isAllowedOrigin(origin)),
+  allowedHeaders: ['Content-Type', 'Cache-Control', 'Authorization'],
+  methods: ['GET', 'POST', 'OPTIONS']
+}));
+
+function guardOrigin(req, res, next) {
+  const origin = req.headers.origin;
+  if (!isAllowedOrigin(origin)) {
+    console.error(`🚫 Rejected ${req.method} ${req.path} from origin ${origin}`);
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  return next();
+}
+
+function timingSafeEqual(a, b) {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function requireToken(req, res, next) {
+  if (!AUTH_TOKEN) return next();
+
+  const header = req.headers.authorization || '';
+  const provided = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!provided || !timingSafeEqual(provided, AUTH_TOKEN)) {
+    console.error(`🚫 Rejected ${req.method} ${req.path} — missing or bad token`);
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  return next();
+}
+
+app.use(guardOrigin);
 app.use(express.json());
 
 // WebSocket server for Chrome/Firefox Extension (will be initialized after port conflict resolution)
@@ -1695,15 +1764,13 @@ function setupWebSocketHandlers() {
 
 // ADD: SSE/HTTP endpoints for online AI
 app.route('/sse')
+  .all(requireToken)
   .get((req, res) => {
     // SSE stream for connection
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control, Content-Type',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+      'Connection': 'keep-alive'
     });
 
     res.write(`data: ${JSON.stringify({
@@ -1751,13 +1818,8 @@ app.route('/sse')
     }
   });
 
-// ADD: CORS preflight handler
-app.options('/*splat', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Cache-Control');
-  res.sendStatus(200);
-});
+// Preflight is answered by the cors() middleware above, which reflects only
+// allowed origins — a blanket handler here would hand `*` back to any page.
 
 // Read from stdin
 let inputBuffer = "";
@@ -1867,9 +1929,16 @@ async function startServer() {
   console.error(`✅ Ports resolved: WebSocket=${WS_PORT}, HTTP=${HTTP_PORT}`);
   
   // Start HTTP server
-  const httpServer = app.listen(HTTP_PORT, () => {
-    console.error(`🌐 HTTP/SSE server running on port ${HTTP_PORT}`);
-    console.error(`🔌 Browser Extension connected on ws://localhost:${WS_PORT}`);
+  const httpServer = app.listen(HTTP_PORT, HTTP_HOST, () => {
+    console.error(`🌐 HTTP/SSE server running on ${HTTP_HOST}:${HTTP_PORT}`);
+    console.error(`🔌 Browser Extension connects on ws://localhost:${WS_PORT}`);
+    if (!isLoopbackHost(HTTP_HOST)) {
+      console.error(`⚠️  Bound beyond loopback (--http-host=${HTTP_HOST}) — /sse requires the token below`);
+    }
+    if (AUTH_TOKEN) {
+      console.error(`🔑 /sse token: ${AUTH_TOKEN}`);
+      console.error('   Send it as: Authorization: Bearer <token>');
+    }
     console.error("🎯 Features: Anti-detection bypass + intelligent automation");
   });
 
@@ -1922,6 +1991,10 @@ async function startServer() {
         console.error('🎉 OPENDIA READY!');
         console.error('📋 Copy this URL for online AI services:');
         console.error(`🔗 ${tunnelUrl}/sse`);
+        console.error('');
+        console.error('🔑 This URL is public — the tunnel requires a token:');
+        console.error(`   Authorization: Bearer ${AUTH_TOKEN}`);
+        console.error('   Reuse a fixed one across restarts with --token=<value>');
         console.error('');
         console.error('💡 ChatGPT: Settings → Connectors → Custom Connector');
         console.error('💡 Claude Web: Add as external MCP server (if supported)');

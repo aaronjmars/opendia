@@ -177,6 +177,25 @@ npx opendia --tunnel
 - Copy URL for ChatGPT/online AI services
 - Local functionality preserved
 
+Because the tunnel is public, `/sse` requires a bearer token in this mode. The
+server prints one at startup; pass `--token=<value>` to pin a fixed one across
+restarts. Send it with every request:
+
+```bash
+curl -H "Authorization: Bearer <token>" https://<tunnel>.ngrok-free.app/sse
+```
+
+### Network Binding
+Both listeners bind `127.0.0.1` by default, and `ngrok` connects from this machine,
+so the tunnel works without widening anything. To expose the HTTP/SSE port on the
+LAN deliberately:
+
+```bash
+npx opendia --http-host=0.0.0.0      # requires a token, same as --tunnel
+```
+
+The WebSocket extension channel always stays on loopback.
+
 **Note**: For auto-tunneling to work, you need ngrok installed:
 
 **macOS:**
