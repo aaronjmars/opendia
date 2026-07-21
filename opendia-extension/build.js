@@ -18,9 +18,6 @@ async function buildForBrowser(browser) {
   if (await fs.pathExists('logo.mp4')) {
     await fs.copy('logo.mp4', path.join(buildDir, 'logo.mp4'));
   }
-  if (await fs.pathExists('logo.webm')) {
-    await fs.copy('logo.webm', path.join(buildDir, 'logo.webm'));
-  }
   
   // Copy browser-specific manifest
   await fs.copy(
@@ -180,7 +177,11 @@ if (require.main === module) {
       buildForBrowser('firefox');
       break;
     case 'validate':
-      validateAllBuilds();
+      // Exit non-zero on failure, or the CI "Validate builds" step passes
+      // whatever validateAllBuilds() reports.
+      validateAllBuilds().then((ok) => {
+        if (!ok) process.exit(1);
+      });
       break;
     case 'package':
       buildAll().then(() => createPackages());

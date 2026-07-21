@@ -40,11 +40,43 @@ class ConnectionManager {
     this.isFirefox = browserInfo.isFirefox;
   }
 
+  // Resolves once the socket is usable, so callers can't send on a CONNECTING
+  // socket. Uses addEventListener so the onopen/onerror/onclose handlers
+  // assigned in createConnection stay intact.
+  waitForSocketOpen(socket, timeoutMs = 5000) {
+    if (socket.readyState === WebSocket.OPEN) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timer);
+        socket.removeEventListener('open', onOpen);
+        socket.removeEventListener('error', onFail);
+        socket.removeEventListener('close', onFail);
+      };
+      const onOpen = () => { cleanup(); resolve(); };
+      const onFail = () => {
+        cleanup();
+        reject(new Error(`Could not reach the OpenDia server at ${MCP_SERVER_URL}`));
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Timed out connecting to ${MCP_SERVER_URL} after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      socket.addEventListener('open', onOpen);
+      socket.addEventListener('error', onFail);
+      socket.addEventListener('close', onFail);
+    });
+  }
+
   async connect() {
     if (this.isServiceWorker) {
-      // Chrome MV3: Create fresh connection for each operation
-      console.log('🔧 Chrome MV3: Creating temporary connection');
-      await this.createConnection();
+      // Reuse a live socket: reconnecting per operation replaced the socket the
+      // request arrived on, so the reply was written to a CONNECTING socket.
+      if (!this.mcpSocket || this.mcpSocket.readyState !== WebSocket.OPEN) {
+        console.log('🔧 Chrome MV3: Creating temporary connection');
+        await this.createConnection();
+      }
     } else {
       // Firefox MV2: Maintain persistent connection
       if (!this.mcpSocket || this.mcpSocket.readyState !== WebSocket.OPEN) {
@@ -61,7 +93,10 @@ class ConnectionManager {
       // Try port discovery if using default URL or if connection failed
       if (MCP_SERVER_URL === 'ws://localhost:5555' || this.reconnectAttempts > 2) {
         await this.discoverServerPorts();
-        this.reconnectAttempts = 0; // Reset attempts after discovery
+        // No reset here: discovery finding a port is not evidence the
+        // connection succeeded. Resetting made the counter oscillate 0->3->0,
+        // so backoff never grew and the give-up guard was unreachable. The
+        // real reset lives in onopen.
       }
 
       console.log('🔗 Connecting to MCP server at', MCP_SERVER_URL);
@@ -115,12 +150,19 @@ class ConnectionManager {
         console.log('⚠️ MCP WebSocket error:', error);
         this.reconnectAttempts++;
       };
-      
+
+      await this.waitForSocketOpen(this.mcpSocket);
+
     } catch (error) {
       console.error('Connection failed:', error);
       if (!this.isServiceWorker) {
         this.scheduleReconnect();
       }
+      // Rethrow so ensureConnection() fails before handleMCPRequest runs the
+      // tool. Swallowing here meant tab_close/element_click still executed
+      // against the browser while the reply was dropped, and the model saw
+      // only "Tool call timeout" — then reasonably retried the side effect.
+      throw error;
     }
   }
 
@@ -155,7 +197,9 @@ class ConnectionManager {
         this.mcpSocket.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
       } else if (this.mcpSocket?.readyState === WebSocket.CLOSED) {
         console.log('🔄 WebSocket closed, attempting reconnection...');
-        this.connect();
+        // Background retry: the reconnect loop owns recovery, so a failure
+        // here is expected and must not become an unhandled rejection.
+        this.connect().catch(() => {});
       }
     }, 15000); // More frequent heartbeat for better reliability
   }
@@ -176,7 +220,7 @@ class ConnectionManager {
     
     this.reconnectInterval = setInterval(() => {
       if (this.reconnectAttempts < 10) {
-        this.connect();
+        this.connect().catch(() => {});
       } else {
         console.log('❌ Maximum reconnection attempts reached');
         this.clearReconnectInterval();
@@ -205,11 +249,12 @@ class ConnectionManager {
   }
 
   send(message) {
-    if (this.mcpSocket && this.mcpSocket.readyState === WebSocket.OPEN) {
-      this.mcpSocket.send(JSON.stringify(message));
-    } else {
-      console.error('WebSocket not connected');
+    if (!this.mcpSocket || this.mcpSocket.readyState !== WebSocket.OPEN) {
+      // Dropping the frame here left the server's pending call to expire as a
+      // generic 30s "Tool call timeout", hiding the real cause.
+      throw new Error(`WebSocket not connected; dropped response for id=${message?.id}`);
     }
+    this.mcpSocket.send(JSON.stringify(message));
   }
 
   getStatus() {
@@ -1075,14 +1120,20 @@ async function handleMCPRequest(message) {
       result,
     });
   } catch (error) {
-    // Send error response
-    connectionManager.send({
-      id,
-      error: {
-        message: error.message,
-        code: -32603,
-      },
-    });
+    // Send error response. Guarded because send() now throws when the socket
+    // is down, and this is the last handler — an escape here would be an
+    // unhandled rejection that loses the original error entirely.
+    try {
+      connectionManager.send({
+        id,
+        error: {
+          message: error.message,
+          code: -32603,
+        },
+      });
+    } catch (sendError) {
+      console.error('Could not deliver error response:', error.message, '|', sendError.message);
+    }
   }
 }
 
@@ -1131,7 +1182,13 @@ async function navigateToUrl(url, waitFor, timeout = 10000) {
     active: true,
     currentWindow: true,
   });
-  
+
+  // tabs.query legitimately returns [] (no focused normal window), which used
+  // to crash here on activeTab.id. Other callers already guard this.
+  if (!activeTab) {
+    throw new Error("No active tab found");
+  }
+
   await browser.tabs.update(activeTab.id, { url });
   
   // If waitFor is specified, wait for the element to appear
@@ -1469,31 +1526,6 @@ async function createTabsBatch(urls, active, wait_for, timeout, batch_settings =
   return result;
 }
 
-// Utility function to generate URLs for testing/demo purposes
-function generateTestUrls(baseUrl, count) {
-  const urls = [];
-  for (let i = 1; i <= count; i++) {
-    urls.push(`${baseUrl}?tab=${i}`);
-  }
-  return urls;
-}
-
-// Batch operation helper functions
-function estimateBatchTime(urlCount, batchSettings = {}) {
-  const {
-    chunk_size = 5,
-    delay_between_chunks = 1000,
-    delay_between_tabs = 200
-  } = batchSettings || {};
-  
-  const totalChunks = Math.ceil(urlCount / chunk_size);
-  const timePerChunk = (chunk_size - 1) * delay_between_tabs; // delays within chunk
-  const timeForChunks = totalChunks * timePerChunk;
-  const timeBetweenChunks = (totalChunks - 1) * delay_between_chunks;
-  
-  return timeForChunks + timeBetweenChunks; // in milliseconds
-}
-
 async function closeTabs(params) {
   const { tab_id, tab_ids } = params;
   
@@ -1804,17 +1836,10 @@ async function getHistory(params) {
     };
 
   } catch (error) {
-    return {
-      success: false,
-      error: `History search failed: ${error.message}`,
-      history_items: [],
-      metadata: {
-        total_found: 0,
-        returned_count: 0,
-        search_params: params,
-        execution_time: new Date().toISOString()
-      }
-    };
+    // Returning an empty history_items here rendered as "No history items
+    // found" via formatHistoryResult, which never reads success/error — a
+    // permissions failure was indistinguishable from an empty result.
+    throw new Error(`History search failed: ${error.message}`);
   }
 }
 
@@ -1834,14 +1859,7 @@ async function getSelectedText(params) {
       try {
         targetTab = await browser.tabs.get(tab_id);
       } catch (error) {
-        return {
-          success: false,
-          error: `Tab ${tab_id} not found or inaccessible`,
-          selected_text: "",
-          metadata: {
-            execution_time: new Date().toISOString()
-          }
-        };
+        throw new Error(`Tab ${tab_id} not found or inaccessible`);
       }
     } else {
       // Get the active tab
@@ -1849,16 +1867,9 @@ async function getSelectedText(params) {
         active: true,
         currentWindow: true,
       });
-      
+
       if (!activeTab) {
-        return {
-          success: false,
-          error: "No active tab found",
-          selected_text: "",
-          metadata: {
-            execution_time: new Date().toISOString()
-          }
-        };
+        throw new Error("No active tab found");
       }
       targetTab = activeTab;
     }
@@ -1881,14 +1892,7 @@ async function getSelectedText(params) {
     const result = results[0]?.result || results[0];
     
     if (!result) {
-      return {
-        success: false,
-        error: "Failed to execute selection script",
-        selected_text: "",
-        metadata: {
-          execution_time: new Date().toISOString()
-        }
-      };
+      throw new Error("Failed to execute selection script");
     }
 
     if (!result.hasSelection) {
@@ -1940,16 +1944,9 @@ async function getSelectedText(params) {
     return response;
 
   } catch (error) {
-    return {
-      success: false,
-      error: `Failed to get selected text: ${error.message}`,
-      selected_text: "",
-      has_selection: false,
-      metadata: {
-        execution_time: new Date().toISOString(),
-        error_details: error.stack
-      }
-    };
+    // These used to return has_selection: false, which formatSelectedTextResult
+    // renders as "No text selected" — a failure was reported as an empty page.
+    throw new Error(`Failed to get selected text: ${error.message}`);
   }
 }
 
@@ -2014,7 +2011,9 @@ function getSelectionFunction() {
 
 // Initialize connection when extension loads (with delay for server startup)
 setTimeout(() => {
-  connectionManager.connect();
+  connectionManager.connect().catch((error) => {
+    console.log('Initial connection attempt failed:', error.message);
+  });
 }, 1000);
 
 // Handle messages from popup
@@ -2028,8 +2027,12 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
       tools: tools.map(t => t.name)
     });
   } else if (request.action === "reconnect") {
-    connectionManager.connect();
-    sendResponse({ success: true });
+    // Report the real outcome: this used to answer success before the socket
+    // had opened, so the popup's reconnect button always looked like it worked.
+    connectionManager.connect()
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true;
   } else if (request.action === "getPorts") {
     sendResponse({
       current: lastKnownPorts,
@@ -2038,9 +2041,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "setSafetyMode") {
     safetyModeEnabled = request.enabled;
     console.log(`🛡️ Safety Mode ${safetyModeEnabled ? 'ENABLED' : 'DISABLED'}`);
-    sendResponse({ success: true });
-  } else if (request.action === "test") {
-    connectionManager.send({ type: "test", timestamp: Date.now() });
     sendResponse({ success: true });
   }
   return true; // Keep the message channel open

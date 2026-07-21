@@ -12,122 +12,6 @@ if (typeof window.OpenDiaContentScriptLoaded !== 'undefined') {
 
 console.log("OpenDia enhanced content script loaded");
 
-// Enhanced Pattern Database with Twitter-First Priority
-const ENHANCED_PATTERNS = {
-  // Authentication patterns
-  auth: {
-    login: {
-      input: [
-        "[type='email']",
-        "[name*='username' i]",
-        "[placeholder*='email' i]",
-        "[name*='login' i]",
-      ],
-      password: ["[type='password']", "[name*='password' i]"],
-      submit: [
-        "[type='submit']",
-        "button[form]",
-        ".login-btn",
-        "[aria-label*='login' i]",
-      ],
-      confidence: 0.9,
-    },
-    signup: {
-      input: [
-        "[name*='register' i]",
-        "[placeholder*='signup' i]",
-        "[name*='email' i]",
-      ],
-      submit: ["[href*='signup']", ".signup-btn", "[aria-label*='register' i]"],
-      confidence: 0.85,
-    },
-  },
-
-  // Content creation patterns - Twitter FIRST
-  content: {
-    post_create: {
-      textarea: [
-        "[data-testid='tweetTextarea_0']", // Twitter FIRST (most specific)
-        "[aria-label='Post text']", // Twitter specific
-        "[contenteditable='true']", // Generic last
-        "textarea[placeholder*='post' i]",
-        "[data-text='true']",
-      ],
-      submit: [
-        "[data-testid='tweetButtonInline']", // Twitter inline
-        "[data-testid='tweetButton']", // Twitter main
-        ".post-btn",
-        ".publish-btn",
-        "[aria-label*='post' i]",
-      ],
-      confidence: 0.95,
-    },
-    comment: {
-      textarea: [
-        "textarea[placeholder*='comment' i]",
-        "[role='textbox']",
-        "[placeholder*='reply' i]",
-      ],
-      submit: [
-        ".comment-btn",
-        "[aria-label*='comment' i]",
-        "[aria-label*='reply' i]",
-      ],
-      confidence: 0.8,
-    },
-  },
-
-  // Search patterns
-  search: {
-    global: {
-      input: [
-        "[data-testid='SearchBox_Search_Input']", // Twitter search first
-        "[type='search']",
-        "[role='searchbox']",
-        "[placeholder*='search' i]",
-        "[name*='search' i]",
-      ],
-      submit: [
-        "[aria-label*='search' i]",
-        ".search-btn",
-        "button[type='submit']",
-      ],
-      confidence: 0.85,
-    },
-  },
-
-  // Navigation patterns
-  nav: {
-    menu: {
-      toggle: [
-        "[aria-label*='menu' i]",
-        ".menu-btn",
-        ".hamburger",
-        "[data-toggle='menu']",
-      ],
-      items: ["nav a", ".nav-item", "[role='menuitem']"],
-      confidence: 0.8,
-    },
-  },
-
-  // Form patterns
-  form: {
-    submit: {
-      button: [
-        "[type='submit']",
-        "button[form]",
-        ".submit-btn",
-        "[aria-label*='submit' i]",
-      ],
-      confidence: 0.85,
-    },
-    reset: {
-      button: ["[type='reset']", ".reset-btn", "[aria-label*='reset' i]"],
-      confidence: 0.8,
-    },
-  },
-};
-
 // Anti-Detection Platform Configuration
 const ANTI_DETECTION_PLATFORMS = {
   "twitter.com": {
@@ -161,57 +45,6 @@ const ANTI_DETECTION_PLATFORMS = {
   },
 };
 
-// Legacy pattern database for backward compatibility
-const PATTERN_DATABASE = {
-  twitter: {
-    domains: ["twitter.com", "x.com"],
-    patterns: {
-      post_tweet: {
-        textarea:
-          "[data-testid='tweetTextarea_0'], [contenteditable='true'][data-text='true']",
-        submit:
-          "[data-testid='tweetButtonInline'], [data-testid='tweetButton']",
-        confidence: 0.95,
-      },
-      search: {
-        input:
-          "[data-testid='SearchBox_Search_Input'], input[placeholder*='search' i]",
-        submit: "[data-testid='SearchBox_Search_Button']",
-        confidence: 0.9,
-      },
-    },
-  },
-  github: {
-    domains: ["github.com"],
-    patterns: {
-      search: {
-        input: "input[placeholder*='Search' i].form-control",
-        submit: "button[type='submit']",
-        confidence: 0.85,
-      },
-    },
-  },
-  universal: {
-    search: {
-      selectors: [
-        "input[type='search']",
-        "input[placeholder*='search' i]",
-        "[role='searchbox']",
-        "input[name*='search' i]",
-      ],
-      confidence: 0.6,
-    },
-    submit: {
-      selectors: [
-        "button[type='submit']:not([disabled])",
-        "input[type='submit']:not([disabled])",
-        "[role='button'][aria-label*='submit' i]",
-      ],
-      confidence: 0.65,
-    },
-  },
-};
-
 
 class BrowserAutomation {
   constructor() {
@@ -220,22 +53,6 @@ class BrowserAutomation {
     this.idCounter = 0;
     this.quickIdCounter = 0;
     this.setupMessageListener();
-    this.setupViewportAnalyzer();
-  }
-
-  setupViewportAnalyzer() {
-    this.visibilityMap = new Map();
-    this.observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          this.visibilityMap.set(entry.target, {
-            visible: entry.isIntersecting,
-            ratio: entry.intersectionRatio,
-          });
-        });
-      },
-      { threshold: [0, 0.1, 0.5, 1.0] }
-    );
   }
 
   setupMessageListener() {
@@ -610,12 +427,9 @@ class BrowserAutomation {
     element_ids,
     max_results = 5,
   }) {
-    const startTime = performance.now();
-
-    // Two-phase approach
-    if (phase === "discover") {
-      return await this.quickDiscovery({ intent_hint, max_results });
-    } else if (phase === "detailed") {
+    // The phase enum is discover|detailed on both sides of the wire, so the
+    // dispatch is total.
+    if (phase === "detailed") {
       return await this.detailedAnalysis({
         intent_hint,
         focus_areas,
@@ -623,13 +437,7 @@ class BrowserAutomation {
         max_results,
       });
     }
-
-    // Legacy single-phase approach for backward compatibility
-    return await this.legacyAnalysis({
-      intent_hint,
-      focus_area: focus_areas?.[0],
-      max_results,
-    });
+    return await this.quickDiscovery({ intent_hint, max_results });
   }
 
   async quickDiscovery({ intent_hint, max_results = 5 }) {
@@ -667,22 +475,8 @@ class BrowserAutomation {
         }
       }
 
-      // Fallback to enhanced patterns
-      if (
-        quickMatches.length === 0 &&
-        (bestMethod === "enhanced_pattern_match" ||
-          bestMethod === "pattern_database")
-      ) {
-        const patternResult = await this.tryEnhancedPatterns(intent_hint);
-        if (patternResult.confidence > 0.7) {
-          quickMatches = patternResult.elements
-            .slice(0, 3)
-            .map((el) => this.compressElement(el, true));
-          usedMethod = "enhanced_patterns";
-        }
-      }
     } catch (error) {
-      console.warn("Enhanced patterns failed:", error);
+      console.warn("Anti-detection pattern matching failed:", error);
     }
 
     // If no pattern matches, do a quick viewport scan
@@ -823,386 +617,6 @@ class BrowserAutomation {
 
 
     return result;
-  }
-
-  async legacyAnalysis({ intent_hint, focus_area, max_results = 5 }) {
-    const startTime = performance.now();
-    let result;
-
-    try {
-      // Try enhanced patterns first
-      result = await this.tryEnhancedPatterns(intent_hint);
-      if (result.confidence > 0.8) {
-        return this.formatAnalysisResult(
-          result,
-          "enhanced_patterns",
-          startTime
-        );
-      }
-    } catch (error) {
-      console.warn("Enhanced patterns failed, trying legacy patterns:", error);
-      try {
-        // Fallback to legacy pattern database
-        result = await this.tryPatternDatabase(intent_hint);
-        if (result.confidence > 0.8) {
-          return this.formatAnalysisResult(
-            result,
-            "pattern_database",
-            startTime
-          );
-        }
-      } catch (legacyError) {
-        console.warn("Legacy pattern database failed:", legacyError);
-      }
-    }
-
-    // Final fallback to semantic analysis
-    result = await this.trySemanticAnalysis(intent_hint, focus_area);
-    return this.formatAnalysisResult(result, "semantic_analysis", startTime);
-  }
-
-  async tryEnhancedPatterns(intent_hint) {
-    const [category, action] = this.parseIntent(intent_hint);
-    const pattern = ENHANCED_PATTERNS[category]?.[action];
-
-    if (!pattern) {
-      return this.tryUniversalPatterns(intent_hint);
-    }
-
-    const elements = this.findPatternElements(pattern);
-    return {
-      elements: elements.slice(0, 3),
-      confidence: pattern.confidence,
-      method: "enhanced_pattern_match",
-      category,
-      action,
-    };
-  }
-
-  parseIntent(intent) {
-    const intentLower = intent.toLowerCase();
-
-    // Check for authentication patterns
-    if (
-      intentLower.includes("login") ||
-      intentLower.includes("sign in") ||
-      intentLower.includes("log in")
-    ) {
-      return ["auth", "login"];
-    }
-    if (
-      intentLower.includes("signup") ||
-      intentLower.includes("sign up") ||
-      intentLower.includes("register") ||
-      intentLower.includes("create account")
-    ) {
-      return ["auth", "signup"];
-    }
-
-    // Check for content creation patterns
-    if (
-      intentLower.includes("tweet") ||
-      intentLower.includes("post") ||
-      intentLower.includes("compose") ||
-      intentLower.includes("create") ||
-      intentLower.includes("write") ||
-      intentLower.includes("publish")
-    ) {
-      return ["content", "post_create"];
-    }
-    if (intentLower.includes("comment") || intentLower.includes("reply")) {
-      return ["content", "comment"];
-    }
-
-    // Check for search patterns
-    if (
-      intentLower.includes("search") ||
-      intentLower.includes("find") ||
-      intentLower.includes("look for")
-    ) {
-      return ["search", "global"];
-    }
-
-    // Check for navigation patterns
-    if (
-      intentLower.includes("menu") ||
-      intentLower.includes("navigation") ||
-      intentLower.includes("nav")
-    ) {
-      return ["nav", "menu"];
-    }
-
-    // Check for form patterns
-    if (
-      intentLower.includes("submit") ||
-      intentLower.includes("send") ||
-      intentLower.includes("save")
-    ) {
-      return ["form", "submit"];
-    }
-    if (
-      intentLower.includes("reset") ||
-      intentLower.includes("clear") ||
-      intentLower.includes("cancel")
-    ) {
-      return ["form", "reset"];
-    }
-
-    // Fallback - try to infer from context
-    if (intentLower.includes("button") || intentLower.includes("click")) {
-      return ["form", "submit"];
-    }
-    if (
-      intentLower.includes("input") ||
-      intentLower.includes("field") ||
-      intentLower.includes("text")
-    ) {
-      return ["content", "post_create"];
-    }
-
-    // Default fallback
-    return ["content", "post_create"]; // More useful default than search
-  }
-
-  findPatternElements(pattern) {
-    const elements = [];
-
-    for (const [elementType, selectors] of Object.entries(pattern)) {
-      if (elementType === "confidence") continue;
-
-      for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element && this.isLikelyVisible(element)) {
-          const elementId = this.registerElement(element);
-          elements.push({
-            id: elementId,
-            type: elementType,
-            selector: selector,
-            name: this.getElementName(element),
-            confidence: pattern.confidence || 0.8,
-            element: element,
-          });
-          break; // Take first match per element type
-        }
-      }
-    }
-
-    return elements;
-  }
-
-  tryUniversalPatterns(intent_hint) {
-    const intentLower = intent_hint.toLowerCase();
-    let selectors = [];
-
-    // Content creation patterns
-    if (
-      intentLower.includes("tweet") ||
-      intentLower.includes("post") ||
-      intentLower.includes("compose") ||
-      intentLower.includes("create") ||
-      intentLower.includes("write")
-    ) {
-      selectors = [
-        "[data-testid='tweetTextarea_0']", // Twitter first!
-        "[contenteditable='true']",
-        "textarea[placeholder*='tweet' i]",
-        "textarea[placeholder*='post' i]",
-        "textarea[placeholder*='what' i]",
-        "[data-text='true']",
-        "[role='textbox']",
-        "textarea:not([style*='display: none'])",
-      ];
-    }
-    // Authentication patterns
-    else if (intentLower.includes("login") || intentLower.includes("sign in")) {
-      selectors = [
-        "[type='email']",
-        "[name*='username' i]",
-        "[placeholder*='email' i]",
-        "[placeholder*='username' i]",
-        "input[name*='login' i]",
-      ];
-    } else if (
-      intentLower.includes("signup") ||
-      intentLower.includes("register")
-    ) {
-      selectors = [
-        "[href*='signup']",
-        ".signup-btn",
-        "[aria-label*='register' i]",
-        "button[data-testid*='signup' i]",
-        "a[href*='register']",
-      ];
-    }
-    // Search patterns
-    else if (intentLower.includes("search") || intentLower.includes("find")) {
-      selectors = [
-        "[data-testid='SearchBox_Search_Input']", // Twitter search first
-        "[type='search']",
-        "[role='searchbox']",
-        "[placeholder*='search' i]",
-        "[data-testid*='search' i]",
-        "input[name*='search' i]",
-      ];
-    }
-    // Generic fallback - look for interactive elements
-    else {
-      selectors = [
-        "button:not([disabled])",
-        "[contenteditable='true']",
-        "textarea",
-        "[type='submit']",
-        "[role='button']",
-        "input[type='text']",
-      ];
-    }
-
-    const elements = [];
-
-    for (const selector of selectors) {
-      const foundElements = document.querySelectorAll(selector);
-      for (const element of foundElements) {
-        if (this.isLikelyVisible(element)) {
-          const elementId = this.registerElement(element);
-          elements.push({
-            id: elementId,
-            type: this.inferElementType(element, intent_hint),
-            selector: selector,
-            name: this.getElementName(element),
-            confidence:
-              0.5 + this.calculateConfidence(element, intent_hint) * 0.3,
-            element: element,
-          });
-          if (elements.length >= 3) break; // Limit to 3 elements
-        }
-      }
-      if (elements.length >= 3) break;
-    }
-
-    return {
-      elements,
-      confidence:
-        elements.length > 0
-          ? Math.max(...elements.map((e) => e.confidence))
-          : 0,
-      method: "universal_pattern",
-    };
-  }
-
-  async tryPatternDatabase(intentHint) {
-    const hostname = window.location.hostname;
-    const siteKey = this.detectSite(hostname);
-
-    if (siteKey === "universal") {
-      return this.getUniversalPattern(intentHint);
-    }
-
-    const siteConfig = PATTERN_DATABASE[siteKey];
-    const pattern = siteConfig?.patterns?.[intentHint];
-
-    if (!pattern) {
-      throw new Error(`No pattern found for ${intentHint} on ${siteKey}`);
-    }
-
-    const elements = [];
-    for (const [elementType, selector] of Object.entries(pattern)) {
-      if (elementType === "confidence") continue;
-
-      const element = document.querySelector(selector);
-      if (element) {
-        const elementId = this.registerElement(element);
-        elements.push({
-          id: elementId,
-          type: elementType,
-          selector: selector,
-          name: this.getElementName(element),
-          confidence: pattern.confidence || 0.8,
-        });
-      }
-    }
-
-    return {
-      elements,
-      confidence: pattern.confidence || 0.8,
-      site: siteKey,
-    };
-  }
-
-  detectSite(hostname) {
-    for (const [siteKey, config] of Object.entries(PATTERN_DATABASE)) {
-      if (siteKey === "universal") continue;
-      if (
-        config.domains?.some(
-          (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
-        )
-      ) {
-        return siteKey;
-      }
-    }
-    return "universal";
-  }
-
-  getUniversalPattern(intentHint) {
-    const universalPatterns = PATTERN_DATABASE.universal;
-    const pattern = universalPatterns[intentHint];
-
-    if (!pattern) {
-      throw new Error(`No universal pattern for ${intentHint}`);
-    }
-
-    const elements = [];
-    for (const selector of pattern.selectors) {
-      const element = document.querySelector(selector);
-      if (element) {
-        const elementId = this.registerElement(element);
-        elements.push({
-          id: elementId,
-          type: intentHint,
-          selector: selector,
-          name: this.getElementName(element),
-          confidence: pattern.confidence,
-        });
-        break; // Take first match for universal patterns
-      }
-    }
-
-    return {
-      elements,
-      confidence: pattern.confidence,
-      site: "universal",
-    };
-  }
-
-  async trySemanticAnalysis(intentHint, focusArea) {
-    const relevantElements = document.querySelectorAll(`
-      button, input, select, textarea, a[href],
-      [role="button"], [role="textbox"], [role="searchbox"],
-      [aria-label], [data-testid]
-    `);
-
-    const elements = Array.from(relevantElements)
-      .filter((el) => this.isVisible(el))
-      .slice(0, 20)
-      .map((element) => {
-        const elementId = this.registerElement(element);
-        return {
-          id: elementId,
-          type: this.inferElementType(element, intentHint),
-          selector: this.generateSelector(element),
-          name: this.getElementName(element),
-          confidence: this.calculateConfidence(element, intentHint),
-        };
-      })
-      .filter((el) => el.confidence > 0.3)
-      .sort((a, b) => b.confidence - a.confidence);
-
-    return {
-      elements,
-      confidence:
-        elements.length > 0
-          ? Math.max(...elements.map((e) => e.confidence))
-          : 0,
-    };
   }
 
   async extractContent({ content_type, max_items = 20, summarize = true }) {
@@ -1399,8 +813,9 @@ class BrowserAutomation {
       total_results: results.length,
       result_types: [...new Set(results.map((r) => r.type))],
       top_domains: this.getTopDomains(domains),
-      avg_score:
-        results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length,
+      avg_score: results.length
+        ? results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length
+        : 0,
       has_sponsored: results.some((r) => r.type === "sponsored"),
       quality_score: this.calculateQualityScore(results),
     };
@@ -1418,10 +833,10 @@ class BrowserAutomation {
 
     return {
       post_count: posts.length,
-      avg_length: Math.round(totalTextLength / posts.length),
+      avg_length: posts.length ? Math.round(totalTextLength / posts.length) : 0,
       has_media_count: posts.filter((p) => p.has_media).length,
       engagement_total: totalLikes,
-      avg_engagement: Math.round(totalLikes / posts.length),
+      avg_engagement: posts.length ? Math.round(totalLikes / posts.length) : 0,
       post_types: [...new Set(posts.map((p) => p.post_type))],
       authors: [...new Set(posts.map((p) => p.author).filter(Boolean))].length,
       estimated_tokens: Math.ceil(totalTextLength / 4),
@@ -1585,6 +1000,10 @@ class BrowserAutomation {
   }
 
   calculateQualityScore(results) {
+    // An extractor that matched nothing returns [], which used to make every
+    // term NaN and ship "NaN%" to the model.
+    if (results.length === 0) return 0;
+
     const avgScore =
       results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length;
     const hasLinks = results.filter((r) => r.link).length / results.length;
@@ -1911,13 +1330,6 @@ class BrowserAutomation {
     );
   }
 
-  isVisible(element) {
-    return (
-      element.offsetParent !== null &&
-      getComputedStyle(element).visibility !== "hidden" &&
-      getComputedStyle(element).opacity !== "0"
-    );
-  }
 
   generateSelector(element) {
     if (element.id) return `#${element.id}`;
@@ -1958,14 +1370,6 @@ class BrowserAutomation {
     return Math.min(confidence, 1.0);
   }
 
-  formatAnalysisResult(result, method, startTime) {
-    return {
-      ...result,
-      method,
-      execution_time: Math.round(performance.now() - startTime),
-      analyzed_at: new Date().toISOString(),
-    };
-  }
 
   // Two-phase utility methods
   compressElement(element, isQuick = false) {
@@ -2281,11 +1685,6 @@ class BrowserAutomation {
     );
   }
 
-  estimateTokenUsage(result) {
-    // Estimate token count based on result size
-    const jsonString = JSON.stringify(result);
-    return Math.ceil(jsonString.length / 4); // Rough estimate: 4 chars per token
-  }
   // Get all links on the page with filtering options
   async getPageLinks(options = {}) {
     const {
@@ -2524,7 +1923,11 @@ class BrowserAutomation {
 
   // 🎨 Page Styling System
   async handlePageStyle(data) {
-    const { mode, theme, background, text_color, font, font_size, mood, intensity, effect, duration, remember } = data;
+    // intensity and duration default in the tool schema but were destructured
+    // without defaults, so effects never auto-removed (applyEffect checks
+    // `duration > 0`) and the description rendered "for undefineds".
+    const { mode, theme, background, text_color, font, font_size, mood,
+      intensity = 'medium', effect, duration = 10, remember } = data;
     
     // Remove existing custom styles
     const existingStyle = document.getElementById('opendia-custom-style');
