@@ -15,17 +15,37 @@ const args = process.argv.slice(2);
 const enableTunnel = args.includes('--tunnel') || args.includes('--auto-tunnel');
 const sseOnly = args.includes('--sse-only');
 
-// Parse port arguments
-const wsPortArg = args.find(arg => arg.startsWith('--ws-port='));
-const httpPortArg = args.find(arg => arg.startsWith('--http-port='));
-const portArg = args.find(arg => arg.startsWith('--port='));
+function usageError(message) {
+  console.error(`❌ ${message}`);
+  process.exit(1);
+}
+
+// Returns the text after `=`, or null when the flag is absent. An empty value
+// (`--token=`) is a usage error, not an empty string: treating it as falsy is
+// what let `--token=` disable auth outright and `--http-host=` bind 0.0.0.0.
+function argValue(name) {
+  const flag = args.find(arg => arg.startsWith(`${name}=`));
+  if (flag === undefined) return null;
+  const value = flag.slice(name.length + 1);
+  if (value === '') usageError(`${name}= requires a value`);
+  return value;
+}
+
+// Digits only — Number() would accept '0x1f' and parseInt() would accept '80abc'.
+function portValue(name) {
+  const raw = argValue(name);
+  if (raw === null) return null;
+  if (!/^\d+$/.test(raw) || raw < 1 || raw > 65535) {
+    usageError(`${name}=${raw} is not a valid port (expected an integer 1-65535)`);
+  }
+  return Number(raw);
+}
 
 // `POST /sse` hands whatever it receives to handleMCPRequest, which drives the
 // browser through the extension. Keep that surface on loopback by default; the
 // extension reaches it at localhost and `ngrok http` connects from this machine
 // too, so neither needs an off-host bind. --http-host= widens it deliberately.
-const httpHostArg = args.find(arg => arg.startsWith('--http-host='));
-const HTTP_HOST = httpHostArg ? httpHostArg.split('=')[1] : '127.0.0.1';
+const HTTP_HOST = argValue('--http-host') ?? '127.0.0.1';
 
 function isLoopbackHost(host) {
   return host === '127.0.0.1' || host === '::1' || host === 'localhost';
@@ -34,15 +54,21 @@ function isLoopbackHost(host) {
 // Once the MCP surface is reachable beyond this machine — widened bind or an
 // ngrok tunnel — loopback stops being the boundary and callers must present a
 // token. Locally it stays off so existing setups keep working untouched.
-const tokenArg = args.find(arg => arg.startsWith('--token='));
+const explicitToken = argValue('--token');
 const requiresToken = enableTunnel || !isLoopbackHost(HTTP_HOST);
 const AUTH_TOKEN = requiresToken
-  ? (tokenArg ? tokenArg.split('=')[1] : crypto.randomBytes(24).toString('hex'))
+  ? (explicitToken ?? crypto.randomBytes(24).toString('hex'))
   : null;
 
 // Default ports
-let WS_PORT = wsPortArg ? parseInt(wsPortArg.split('=')[1]) : (portArg ? parseInt(portArg.split('=')[1]) : 5555);
-let HTTP_PORT = httpPortArg ? parseInt(httpPortArg.split('=')[1]) : (portArg ? parseInt(portArg.split('=')[1]) + 1 : 5556);
+const wsPortArg = portValue('--ws-port');
+const httpPortArg = portValue('--http-port');
+const portArg = portValue('--port');
+let WS_PORT = wsPortArg ?? portArg ?? 5555;
+let HTTP_PORT = httpPortArg ?? (portArg !== null ? portArg + 1 : 5556);
+if (HTTP_PORT > 65535) {
+  usageError(`--port=${portArg} leaves no room for the HTTP port (${HTTP_PORT})`);
+}
 
 // Port conflict detection utilities
 async function checkPortInUse(port) {
@@ -2651,5 +2677,9 @@ async function executeFillFormWorkflow(args) {
   }
 }
 
-// Start the server
-startServer();
+// Start the server. Without the catch, a throw in port resolution or tunnel
+// setup surfaces as an unhandled rejection instead of a readable message.
+startServer().catch((error) => {
+  console.error('❌ Failed to start OpenDia:', error.message);
+  process.exit(1);
+});
