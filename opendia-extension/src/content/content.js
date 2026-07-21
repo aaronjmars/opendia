@@ -53,22 +53,6 @@ class BrowserAutomation {
     this.idCounter = 0;
     this.quickIdCounter = 0;
     this.setupMessageListener();
-    this.setupViewportAnalyzer();
-  }
-
-  setupViewportAnalyzer() {
-    this.visibilityMap = new Map();
-    this.observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          this.visibilityMap.set(entry.target, {
-            visible: entry.isIntersecting,
-            ratio: entry.intersectionRatio,
-          });
-        });
-      },
-      { threshold: [0, 0.1, 0.5, 1.0] }
-    );
   }
 
   setupMessageListener() {
@@ -829,8 +813,9 @@ class BrowserAutomation {
       total_results: results.length,
       result_types: [...new Set(results.map((r) => r.type))],
       top_domains: this.getTopDomains(domains),
-      avg_score:
-        results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length,
+      avg_score: results.length
+        ? results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length
+        : 0,
       has_sponsored: results.some((r) => r.type === "sponsored"),
       quality_score: this.calculateQualityScore(results),
     };
@@ -848,10 +833,10 @@ class BrowserAutomation {
 
     return {
       post_count: posts.length,
-      avg_length: Math.round(totalTextLength / posts.length),
+      avg_length: posts.length ? Math.round(totalTextLength / posts.length) : 0,
       has_media_count: posts.filter((p) => p.has_media).length,
       engagement_total: totalLikes,
-      avg_engagement: Math.round(totalLikes / posts.length),
+      avg_engagement: posts.length ? Math.round(totalLikes / posts.length) : 0,
       post_types: [...new Set(posts.map((p) => p.post_type))],
       authors: [...new Set(posts.map((p) => p.author).filter(Boolean))].length,
       estimated_tokens: Math.ceil(totalTextLength / 4),
@@ -1015,6 +1000,10 @@ class BrowserAutomation {
   }
 
   calculateQualityScore(results) {
+    // An extractor that matched nothing returns [], which used to make every
+    // term NaN and ship "NaN%" to the model.
+    if (results.length === 0) return 0;
+
     const avgScore =
       results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length;
     const hasLinks = results.filter((r) => r.link).length / results.length;

@@ -14,20 +14,31 @@ let toolCount = document.getElementById("toolCount");
 let currentPage = document.getElementById("currentPage");
 let serverUrl = document.getElementById("serverUrl");
 
+// Shown when the background script can't be reached. Kept as one list so the
+// name list and the count can't disagree — they previously said 17 and omitted
+// page_style, while the extension registered 18.
+const KNOWN_TOOLS = [
+  "page_analyze", "page_extract_content", "element_click", "element_fill",
+  "element_get_state", "page_navigate", "page_wait_for", "page_scroll",
+  "page_style", "tab_create", "tab_close", "tab_list", "tab_switch",
+  "get_bookmarks", "add_bookmark", "get_history", "get_selected_text",
+  "get_page_links"
+];
+
+function renderToolCount(count) {
+  toolCount.innerHTML = `<span class="tooltip">${count}
+          <span class="tooltip-content">Available MCP Tools:\n${KNOWN_TOOLS.join(" • ")}</span>
+        </span>`;
+}
+
 // Get dynamic tool count from background script
 function updateToolCount() {
   if (runtimeAPI?.id) {
     runtimeAPI.sendMessage({ action: "getToolCount" }, (response) => {
-      if (!runtimeAPI.lastError && response?.toolCount) {
-        toolCount.innerHTML = `<span class="tooltip">${response.toolCount}
-          <span class="tooltip-content">Available MCP Tools:\npage_analyze • page_extract_content • element_click • element_fill • element_get_state • page_navigate • page_wait_for • page_scroll • tab_create • tab_close • tab_list • tab_switch • get_bookmarks • add_bookmark • get_history • get_selected_text • get_page_links</span>
-        </span>`;
-      } else {
-        // Fallback to calculating from background script
-        toolCount.innerHTML = `<span class="tooltip">17
-          <span class="tooltip-content">Available MCP Tools:\npage_analyze • page_extract_content • element_click • element_fill • element_get_state • page_navigate • page_wait_for • page_scroll • tab_create • tab_close • tab_list • tab_switch • get_bookmarks • add_bookmark • get_history • get_selected_text • get_page_links</span>
-        </span>`;
-      }
+      const live = response?.toolCount;
+      renderToolCount(
+        !runtimeAPI.lastError && typeof live === "number" ? live : KNOWN_TOOLS.length
+      );
     });
   }
 }
@@ -123,13 +134,6 @@ safetyModeToggle.addEventListener('change', () => {
     action: "setSafetyMode", 
     enabled: safetyEnabled 
   });
-});
-
-// Listen for updates from background script
-runtimeAPI.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "statusUpdate") {
-    updateStatus(message.connected);
-  }
 });
 
 // Video speed control based on mouse movement

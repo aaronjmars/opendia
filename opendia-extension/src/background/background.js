@@ -1179,7 +1179,13 @@ async function navigateToUrl(url, waitFor, timeout = 10000) {
     active: true,
     currentWindow: true,
   });
-  
+
+  // tabs.query legitimately returns [] (no focused normal window), which used
+  // to crash here on activeTab.id. Other callers already guard this.
+  if (!activeTab) {
+    throw new Error("No active tab found");
+  }
+
   await browser.tabs.update(activeTab.id, { url });
   
   // If waitFor is specified, wait for the element to appear
@@ -2032,9 +2038,6 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === "setSafetyMode") {
     safetyModeEnabled = request.enabled;
     console.log(`🛡️ Safety Mode ${safetyModeEnabled ? 'ENABLED' : 'DISABLED'}`);
-    sendResponse({ success: true });
-  } else if (request.action === "test") {
-    connectionManager.send({ type: "test", timestamp: Date.now() });
     sendResponse({ success: true });
   }
   return true; // Keep the message channel open

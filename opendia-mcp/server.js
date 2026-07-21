@@ -1547,7 +1547,7 @@ function verifyExtensionClient(info, done) {
   }
 
   const origin = info.origin || info.req.headers.origin;
-  if (origin && !/^(chrome|moz|safari-web)-extension:\/\//.test(origin)) {
+  if (origin && !EXTENSION_ORIGIN.test(origin)) {
     console.error(`🚫 Rejected WebSocket handshake from origin ${origin}`);
     return done(false, 403, "Forbidden");
   }
@@ -1584,6 +1584,12 @@ function setupWebSocketHandlers() {
         const message = JSON.parse(data);
 
         if (message.type === "register") {
+          // Any loopback client can send this. A non-array left availableTools
+          // undefined and every later tools/list threw until restart.
+          if (!Array.isArray(message.tools)) {
+            console.error("⚠️ Ignoring register frame: tools is not an array");
+            return;
+          }
           availableTools = message.tools;
           console.error(
             `✅ Registered ${availableTools.length} browser tools from extension`
