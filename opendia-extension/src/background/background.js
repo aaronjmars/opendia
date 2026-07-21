@@ -1469,31 +1469,6 @@ async function createTabsBatch(urls, active, wait_for, timeout, batch_settings =
   return result;
 }
 
-// Utility function to generate URLs for testing/demo purposes
-function generateTestUrls(baseUrl, count) {
-  const urls = [];
-  for (let i = 1; i <= count; i++) {
-    urls.push(`${baseUrl}?tab=${i}`);
-  }
-  return urls;
-}
-
-// Batch operation helper functions
-function estimateBatchTime(urlCount, batchSettings = {}) {
-  const {
-    chunk_size = 5,
-    delay_between_chunks = 1000,
-    delay_between_tabs = 200
-  } = batchSettings || {};
-  
-  const totalChunks = Math.ceil(urlCount / chunk_size);
-  const timePerChunk = (chunk_size - 1) * delay_between_tabs; // delays within chunk
-  const timeForChunks = totalChunks * timePerChunk;
-  const timeBetweenChunks = (totalChunks - 1) * delay_between_chunks;
-  
-  return timeForChunks + timeBetweenChunks; // in milliseconds
-}
-
 async function closeTabs(params) {
   const { tab_id, tab_ids } = params;
   

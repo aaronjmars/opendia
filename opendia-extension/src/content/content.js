@@ -610,8 +610,6 @@ class BrowserAutomation {
     element_ids,
     max_results = 5,
   }) {
-    const startTime = performance.now();
-
     // Two-phase approach
     if (phase === "discover") {
       return await this.quickDiscovery({ intent_hint, max_results });
@@ -2281,11 +2279,6 @@ class BrowserAutomation {
     );
   }
 
-  estimateTokenUsage(result) {
-    // Estimate token count based on result size
-    const jsonString = JSON.stringify(result);
-    return Math.ceil(jsonString.length / 4); // Rough estimate: 4 chars per token
-  }
   // Get all links on the page with filtering options
   async getPageLinks(options = {}) {
     const {

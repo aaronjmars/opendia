@@ -5,17 +5,15 @@ const express = require("express");
 const net = require('net');
 const { exec } = require('child_process');
 
-// ADD: New imports for SSE transport
+// SSE transport
 const cors = require('cors');
 const crypto = require('crypto');
-const { createServer } = require('http');
 const { spawn } = require('child_process');
 
-// ADD: Enhanced command line argument parsing
+// Command line argument parsing
 const args = process.argv.slice(2);
 const enableTunnel = args.includes('--tunnel') || args.includes('--auto-tunnel');
 const sseOnly = args.includes('--sse-only');
-const killExisting = args.includes('--kill-existing');
 
 // Parse port arguments
 const wsPortArg = args.find(arg => arg.startsWith('--ws-port='));
@@ -42,7 +40,7 @@ const AUTH_TOKEN = requiresToken
   ? (tokenArg ? tokenArg.split('=')[1] : crypto.randomBytes(24).toString('hex'))
   : null;
 
-// Default ports (changed from 3000/3001 to 5555/5556)
+// Default ports
 let WS_PORT = wsPortArg ? parseInt(wsPortArg.split('=')[1]) : (portArg ? parseInt(portArg.split('=')[1]) : 5555);
 let HTTP_PORT = httpPortArg ? parseInt(httpPortArg.split('=')[1]) : (portArg ? parseInt(portArg.split('=')[1]) + 1 : 5556);
 
@@ -162,7 +160,7 @@ async function handlePortConflict(port, portName) {
   }
 }
 
-// ADD: Express app setup
+// Express app setup
 const app = express();
 
 // Loopback is not a trust boundary for a browser: a page the user visits can
@@ -879,7 +877,7 @@ function formatLinksResult(result, metadata) {
 function formatTabCreateResult(result, metadata) {
   // Handle batch operations
   if (result.batch_operation) {
-    const { summary, created_tabs, settings_used, warnings, errors } = result;
+    const { summary, created_tabs, warnings, errors } = result;
     
     let output = `🚀 Batch tab creation completed
 📊 Summary: ${summary.successful}/${summary.total_requested} tabs created successfully
@@ -911,14 +909,6 @@ function formatTabCreateResult(result, metadata) {
         output += `   ${index + 1}. ${error.url}: ${error.error}\n`;
       });
       output += '\n';
-    }
-
-    // Add settings used (if available)
-    if (settings_used) {
-      output += `⚙️ Settings used:\n`;
-      output += `   • Chunk size: ${settings_used.chunk_size}\n`;
-      output += `   • Delay between chunks: ${settings_used.delay_between_chunks}ms\n`;
-      output += `   • Delay between tabs: ${settings_used.delay_between_tabs}ms\n`;
     }
 
     return output + `\n${JSON.stringify(metadata, null, 2)}`;
@@ -1762,7 +1752,7 @@ function setupWebSocketHandlers() {
   });
 }
 
-// ADD: SSE/HTTP endpoints for online AI
+// SSE/HTTP endpoints for online AI
 app.route('/sse')
   .all(requireToken)
   .get((req, res) => {
@@ -1849,7 +1839,7 @@ if (!sseOnly) {
   });
 }
 
-// ADD: Health check endpoint (update existing one)
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -1872,7 +1862,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ADD: Port discovery endpoint for Chrome/Firefox extension
+// Port discovery endpoint for the browser extension
 app.get('/ports', (req, res) => {
   res.json({
     websocket: WS_PORT,
@@ -1883,7 +1873,7 @@ app.get('/ports', (req, res) => {
   });
 });
 
-// START: Enhanced server startup with port conflict resolution
+// Server startup with port conflict resolution
 async function startServer() {
   console.error("🚀 Enhanced Browser MCP Server with Anti-Detection Features");
   console.error(`📊 Default ports: WebSocket=${WS_PORT}, HTTP=${HTTP_PORT}`);
@@ -2421,8 +2411,7 @@ async function executeOrganizeTabsWorkflow(args) {
     result += `📊 **Starting with ${tabs.length} tabs**\n\n`;
     
     let closedTabs = [];
-    let organizedTabs = [];
-    
+
     if (strategy === "close_duplicates") {
       // Find and close duplicate tabs
       const seenUrls = new Set();
@@ -2485,9 +2474,6 @@ async function executeOrganizeTabsWorkflow(args) {
       
     } else if (strategy === "archive_old") {
       // Find tabs that haven't been active recently
-      const currentTime = Date.now();
-      const oneHourAgo = currentTime - (60 * 60 * 1000);
-      
       // Since we don't have last accessed time, we'll use a heuristic
       // based on tab loading status and position
       const staleTabsToClose = tabs.filter(tab => 

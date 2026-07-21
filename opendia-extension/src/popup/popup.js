@@ -16,13 +16,6 @@ let serverUrl = document.getElementById("serverUrl");
 
 // Get dynamic tool count from background script
 function updateToolCount() {
-  const toolsList = [
-    "page_analyze", "page_extract_content", "element_click", "element_fill",
-    "element_get_state", "page_navigate", "page_wait_for", "page_scroll",
-    "tab_create", "tab_close", "tab_list", "tab_switch",
-    "get_bookmarks", "add_bookmark", "get_history", "get_selected_text", "get_page_links"
-  ];
-  
   if (runtimeAPI?.id) {
     runtimeAPI.sendMessage({ action: "getToolCount" }, (response) => {
       if (!runtimeAPI.lastError && response?.toolCount) {
