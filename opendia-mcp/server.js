@@ -60,6 +60,10 @@ const AUTH_TOKEN = requiresToken
   ? (explicitToken ?? crypto.randomBytes(24).toString('hex'))
   : null;
 
+// Kept in step with opendia-mcp/package.json by the release checklist.
+// package.json can't be required: the published package ships only server.js.
+const SERVER_VERSION = '1.1.1';
+
 // Default ports
 const wsPortArg = portValue('--ws-port');
 const httpPortArg = portValue('--http-port');
@@ -280,7 +284,7 @@ async function handleMCPRequest(request) {
           },
           serverInfo: {
             name: "browser-mcp-server",
-            version: "2.0.0",
+            version: SERVER_VERSION,
           },
           instructions:
             "🎯 Enhanced browser automation with anti-detection bypass for Twitter/X, LinkedIn, Facebook. Extension may take a moment to connect.",
@@ -717,21 +721,15 @@ function formatScrollResult(result, metadata) {
     summary += ` (${result.pixels}px)`;
   }
 
-  if (result.element_scrolled) {
-    summary += `\n🎯 Scrolled to element: ${result.element_scrolled}`;
+  // These read the field names scrollPage actually returns. They previously
+  // read scroll_position/wait_time, which it never emits, so the position and
+  // wait were silently dropped from every scroll result.
+  if (result.new_position) {
+    summary += `\n📍 New position: x=${result.new_position.x}, y=${result.new_position.y}`;
   }
 
-  if (result.scroll_position) {
-    summary += `\n📍 New position: x=${result.scroll_position.x}, y=${result.scroll_position.y}`;
-  }
-
-  if (result.page_dimensions) {
-    const { width, height, scrollWidth, scrollHeight } = result.page_dimensions;
-    summary += `\n📐 Page size: ${width}x${height} (scrollable: ${scrollWidth}x${scrollHeight})`;
-  }
-
-  if (result.wait_time) {
-    summary += `\n⏱️ Waited ${result.wait_time}ms after scroll`;
+  if (result.wait_after) {
+    summary += `\n⏱️ Waited ${result.wait_after}ms after scroll`;
   }
 
   return `${summary}\n\n${JSON.stringify(metadata, null, 2)}`;
@@ -846,7 +844,7 @@ ${JSON.stringify(metadata, null, 2)}`;
   }
 
   const summary = `📋 Found ${result.count} open tabs:
-🎯 Active tab: ${result.active_tab || 'None'}
+🎯 Active tab: ${result.summary?.active_tab ?? 'None'}
 
 `;
   
@@ -1666,7 +1664,7 @@ app.route('/sse')
       type: 'connection',
       status: 'connected',
       server: 'OpenDia MCP Server',
-      version: '1.0.0'
+      version: SERVER_VERSION
     })}\n\n`);
 
     // Heartbeat to keep connection alive

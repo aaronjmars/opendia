@@ -1923,7 +1923,11 @@ class BrowserAutomation {
 
   // 🎨 Page Styling System
   async handlePageStyle(data) {
-    const { mode, theme, background, text_color, font, font_size, mood, intensity, effect, duration, remember } = data;
+    // intensity and duration default in the tool schema but were destructured
+    // without defaults, so effects never auto-removed (applyEffect checks
+    // `duration > 0`) and the description rendered "for undefineds".
+    const { mode, theme, background, text_color, font, font_size, mood,
+      intensity = 'medium', effect, duration = 10, remember } = data;
     
     // Remove existing custom styles
     const existingStyle = document.getElementById('opendia-custom-style');

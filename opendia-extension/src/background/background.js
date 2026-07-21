@@ -93,7 +93,10 @@ class ConnectionManager {
       // Try port discovery if using default URL or if connection failed
       if (MCP_SERVER_URL === 'ws://localhost:5555' || this.reconnectAttempts > 2) {
         await this.discoverServerPorts();
-        this.reconnectAttempts = 0; // Reset attempts after discovery
+        // No reset here: discovery finding a port is not evidence the
+        // connection succeeded. Resetting made the counter oscillate 0->3->0,
+        // so backoff never grew and the give-up guard was unreachable. The
+        // real reset lives in onopen.
       }
 
       console.log('🔗 Connecting to MCP server at', MCP_SERVER_URL);
