@@ -549,9 +549,9 @@ function formatToolResult(toolName, result) {
       return formatElementFillResult(result, metadata);
 
     case "page_navigate":
-      return `✅ Successfully navigated to: ${
+      return `${result.warning ? `⚠️ ${result.warning}` : `✅ Successfully navigated to: ${
         result.url || "unknown URL"
-      }\n\n${JSON.stringify(metadata, null, 2)}`;
+      }`}\n\n${JSON.stringify(metadata, null, 2)}`;
 
     case "page_wait_for":
       return (
@@ -2217,14 +2217,16 @@ async function executeResearchWorkflow(args) {
     const currentUrl = pageContent.content?.url;
     const currentTitle = pageContent.summary?.title;
     
+    let bookmarkStatus = 'Page not bookmarked (no URL or title available)';
     if (currentUrl && currentTitle) {
       try {
         await callBrowserTool('add_bookmark', {
           title: `[Research: ${topic}] ${currentTitle}`,
           url: currentUrl
         });
+        bookmarkStatus = '✅ **Current page bookmarked for reference**';
       } catch (bookmarkError) {
-        console.warn('Bookmark creation failed:', bookmarkError.message);
+        bookmarkStatus = `⚠️ Bookmark failed: ${bookmarkError.message}`;
       }
     }
     
@@ -2282,7 +2284,7 @@ async function executeResearchWorkflow(args) {
       result += `• Focus on current page content and top 3 related links\n`;
     }
     
-    result += `\n✅ **Current page bookmarked for reference**`;
+    result += `\n${bookmarkStatus}`;
     
     return result;
     
